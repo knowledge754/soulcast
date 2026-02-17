@@ -41,14 +41,13 @@ const app = useAppStore()
 }
 
 .main-inner {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 48px 60px 96px;
+  max-width: 1100px;
+  padding: 0 40px 60px 64px;
   transition: max-width 0.3s ease, padding 0.3s ease;
 }
 .main-inner.layout-full {
   max-width: none;
-  padding: 0 32px 60px;
+  padding: 0 40px 60px 64px;
 }
 
 .page-enter-active {
