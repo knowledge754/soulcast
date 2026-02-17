@@ -16,6 +16,16 @@ const pageTitle = computed(() => {
   return (route.meta?.title as string) || '首页'
 })
 
+const isHome = computed(() => route.name === 'home')
+
+function goBack() {
+  if (window.history.length > 1) {
+    router.back()
+  } else {
+    router.push({ name: 'home' })
+  }
+}
+
 function handleConnectClick() {
   if (wallet.state.value.connected) {
     showDropdown.value = !showDropdown.value
@@ -36,7 +46,14 @@ function closeDropdown() {
 
 <template>
   <div class="topbar">
-    <div class="topbar-title">{{ pageTitle }}</div>
+    <div class="topbar-left">
+      <button v-if="!isHome" class="back-btn" @click="goBack" title="返回上一页">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 12H5" /><path d="M12 19l-7-7 7-7" />
+        </svg>
+      </button>
+      <div class="topbar-title">{{ pageTitle }}</div>
+    </div>
 
     <div class="topbar-search">
       <Icon name="search" :size="14" class="search-icon" />
@@ -174,6 +191,30 @@ function closeDropdown() {
   z-index: var(--z-sticky);
 }
 
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.back-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+}
+.back-btn:hover {
+  border-color: var(--border-hover);
+  color: var(--accent-blue);
+  background: rgba(99, 179, 237, 0.06);
+}
 .topbar-title {
   font-size: 20px;
   font-weight: 600;
