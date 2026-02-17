@@ -165,6 +165,24 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 
 <template>
   <div class="ss-page">
+    <!-- ★ 宇宙深空背景 ★ -->
+    <div class="cosmos">
+      <div class="cosmos-gradient"></div>
+      <div class="star-field">
+        <div v-for="i in 140" :key="'s'+i" class="s"
+          :style="{
+            left: (Math.random() * 100) + '%',
+            top: (Math.random() * 100) + '%',
+            width: (0.3 + Math.random() * 1.8) + 'px',
+            height: (0.3 + Math.random() * 1.8) + 'px',
+            '--d': (3 + Math.random() * 7) + 's',
+            '--delay': (Math.random() * 8) + 's',
+            '--lo': (0.04 + Math.random() * 0.08),
+            '--hi': (0.3 + Math.random() * 0.6)
+          }"
+        ></div>
+      </div>
+    </div>
     <!-- Tab Nav -->
     <div class="ss-tabs">
       <button class="ss-tab" :class="{ active: activeTab === 'create' }" @click="showTab('create')">
@@ -757,6 +775,9 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 <style scoped>
 /* ═══ Variables ═══ */
 .ss-page {
+  --void: #020408;
+  --deep: #060c16;
+  --surface: #0a1628;
   --star-blue: #60a5fa;
   --star-cyan: #22d3ee;
   --star-purple: #a78bfa;
@@ -767,11 +788,56 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
   --ss-card-hover: #112240;
   --ss-border: rgba(148,196,255,0.10);
   --ss-border-bright: rgba(148,196,255,0.28);
+  --sealed-glow: 0 0 40px rgba(96,165,250,0.15);
   --ss-r: 18px;
   --ss-r-sm: 10px;
+  position: relative;
   animation: ssIn 0.4s ease;
 }
 @keyframes ssIn { from { opacity: 0; transform: translateY(10px); } }
+
+/* ═══ Cosmic Background ═══ */
+.cosmos {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.cosmos-gradient {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 50% at 20% 20%, rgba(96,165,250,0.04) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 60% at 80% 70%, rgba(167,139,250,0.05) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 40% at 50% 10%, rgba(34,211,238,0.03) 0%, transparent 70%);
+}
+.star-field {
+  position: absolute;
+  inset: 0;
+}
+.s {
+  position: absolute;
+  border-radius: 50%;
+  background: white;
+  animation: twinkle var(--d, 4s) var(--delay, 0s) ease-in-out infinite alternate;
+}
+@keyframes twinkle {
+  from { opacity: var(--lo, 0.05); transform: scale(0.8); }
+  to   { opacity: var(--hi, 0.6);  transform: scale(1.2); }
+}
+
+/* ═══ Content layer (above cosmos) ═══ */
+.ss-tabs,
+.create-layout,
+.my-cap-header,
+.filter-bar,
+.capsule-grid,
+.open-scene,
+.received-header,
+.received-grid,
+.step-panel,
+.preview-capsule { position: relative; z-index: 1; }
 
 /* ═══ Tabs ═══ */
 .ss-tabs {
