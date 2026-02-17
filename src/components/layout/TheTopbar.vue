@@ -11,6 +11,53 @@ const router = useRouter()
 const wallet = useWallet()
 const app = useAppStore()
 const showDropdown = ref(false)
+const showTtsMenu = ref(false)
+const ttsLang = ref('zh-CN')
+const ttsSpeaking = ref(false)
+
+const ttsLanguages = [
+  { code: 'zh-CN', label: '中文', flag: '🇨🇳' },
+  { code: 'en-US', label: 'English', flag: '🇺🇸' },
+  { code: 'ja-JP', label: '日本語', flag: '🇯🇵' },
+  { code: 'ko-KR', label: '한국어', flag: '🇰🇷' },
+  { code: 'fr-FR', label: 'Français', flag: '🇫🇷' },
+  { code: 'de-DE', label: 'Deutsch', flag: '🇩🇪' },
+  { code: 'es-ES', label: 'Español', flag: '🇪🇸' },
+  { code: 'ru-RU', label: 'Русский', flag: '🇷🇺' },
+]
+
+function toggleTts() {
+  if (ttsSpeaking.value) {
+    window.speechSynthesis.cancel()
+    ttsSpeaking.value = false
+    return
+  }
+  const mainEl = document.querySelector('.main-inner')
+  if (!mainEl) return
+  const text = mainEl.innerText || mainEl.textContent || ''
+  if (!text.trim()) return
+  const utterance = new SpeechSynthesisUtterance(text.slice(0, 3000))
+  utterance.lang = ttsLang.value
+  utterance.rate = 0.95
+  utterance.onend = () => { ttsSpeaking.value = false }
+  utterance.onerror = () => { ttsSpeaking.value = false }
+  window.speechSynthesis.cancel()
+  window.speechSynthesis.speak(utterance)
+  ttsSpeaking.value = true
+}
+
+function selectLang(code: string) {
+  ttsLang.value = code
+  showTtsMenu.value = false
+  if (ttsSpeaking.value) {
+    window.speechSynthesis.cancel()
+    ttsSpeaking.value = false
+  }
+}
+
+function closeTtsMenu() {
+  showTtsMenu.value = false
+}
 
 const pageTitle = computed(() => {
   return (route.meta?.title as string) || '首页'
@@ -77,6 +124,56 @@ function closeDropdown() {
           <line x1="5" y1="9" x2="19" y2="9" />
         </svg>
       </button>
+      <!-- 语音朗读 -->
+      <div class="tts-wrapper">
+        <button
+          class="topbar-btn tts-btn"
+          :class="{ speaking: ttsSpeaking }"
+          title="语音朗读"
+          @click="toggleTts()"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+            <path v-if="!ttsSpeaking" d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+            <path v-if="!ttsSpeaking" d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+            <line v-if="ttsSpeaking" x1="16" y1="9" x2="22" y2="15" />
+            <line v-if="ttsSpeaking" x1="22" y1="9" x2="16" y2="15" />
+          </svg>
+        </button>
+        <button
+          class="tts-lang-btn"
+          title="选择语言"
+          @click="showTtsMenu = !showTtsMenu"
+        >
+          <span class="tts-lang-code">{{ ttsLang.split('-')[0] }}</span>
+          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </button>
+
+        <Transition name="dropdown">
+          <div v-if="showTtsMenu" class="tts-dropdown">
+            <div class="tts-backdrop" @click="closeTtsMenu"></div>
+            <div class="tts-panel">
+              <div class="tts-panel-title">朗读语言</div>
+              <button
+                v-for="lang in ttsLanguages"
+                :key="lang.code"
+                class="tts-lang-item"
+                :class="{ active: ttsLang === lang.code }"
+                @click="selectLang(lang.code)"
+              >
+                <span class="tts-flag">{{ lang.flag }}</span>
+                <span>{{ lang.label }}</span>
+                <svg v-if="ttsLang === lang.code" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </Transition>
+      </div>
+
       <button class="topbar-btn">
         <Icon name="bell" :size="16" />
       </button>
@@ -279,6 +376,111 @@ function closeDropdown() {
 }
 .layout-toggle.topbar-btn {
   position: relative;
+}
+
+/* ═══ 语音朗读 ═══ */
+.tts-wrapper {
+  display: flex;
+  align-items: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: visible;
+  position: relative;
+}
+.tts-btn.topbar-btn {
+  border: none;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  padding: 8px 10px;
+}
+.tts-btn.speaking {
+  color: var(--accent-blue);
+  background: rgba(99, 179, 237, 0.08);
+}
+.tts-lang-btn {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 8px 8px 6px;
+  border: none;
+  border-left: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  transition: all 0.15s;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.tts-lang-code {
+  text-transform: uppercase;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+.tts-lang-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* TTS 语言下拉 */
+.tts-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 200;
+}
+.tts-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+}
+.tts-panel {
+  position: relative;
+  z-index: 1;
+  width: 180px;
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+  padding: 6px;
+  overflow: hidden;
+}
+.tts-panel-title {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  letter-spacing: 1px;
+  padding: 6px 10px 4px;
+  text-transform: uppercase;
+}
+.tts-lang-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+  border: none;
+  background: transparent;
+  text-align: left;
+}
+.tts-lang-item:hover {
+  background: rgba(99, 179, 237, 0.07);
+  color: var(--text-primary);
+}
+.tts-lang-item.active {
+  color: var(--accent-blue);
+  background: rgba(99, 179, 237, 0.1);
+}
+.tts-lang-item svg {
+  margin-left: auto;
+}
+.tts-flag {
+  font-size: 15px;
 }
 
 /* ═══ 连接钱包按钮（未连接状态）═══ */
