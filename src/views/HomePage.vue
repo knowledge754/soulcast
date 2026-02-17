@@ -1,10 +1,16 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
+import { computed } from 'vue'
 import Icon from '../components/icons/Icon.vue'
 import { useAppStore } from '../stores/app'
+import { useI18n } from '../stores/i18n'
 
 const router = useRouter()
 const app = useAppStore()
+const i18n = useI18n()
+
+const heroTitle = computed(() => i18n.t('home.title'))
+const heroSub = computed(() => i18n.t('home.sub'))
 
 const posts = [
   {
@@ -85,29 +91,26 @@ const moments = [
       <div class="hero-content">
         <div class="hero-chain-badge">
           <Icon name="hexagon" :size="12" />
-          Ethereum Mainnet · EIP-4361 已验证
+          {{ i18n.t('home.badge') }}
         </div>
-        <h1 class="hero-title">你的 Web3 灵魂<br>永久在链上</h1>
-        <p class="hero-sub">
-          不仅仅是博客，而是你链上的精神宇宙。<br>
-          每一篇文章、每一张照片、每一个时刻，都由你的钱包签名，永远属于你。
-        </p>
+        <h1 class="hero-title" v-html="heroTitle.replace(/\n/g, '<br>')"></h1>
+        <p class="hero-sub" v-html="heroSub.replace(/\n/g, '<br>')"></p>
         <div class="hero-stats">
           <div class="stat-item">
             <div class="stat-num">{{ app.stats.posts }}</div>
-            <div class="stat-label">文章已上链</div>
+            <div class="stat-label">{{ i18n.t('home.stat.posts') }}</div>
           </div>
           <div class="stat-item">
             <div class="stat-num">{{ app.stats.nfts }}</div>
-            <div class="stat-label">NFT 已铸造</div>
+            <div class="stat-label">{{ i18n.t('home.stat.nfts') }}</div>
           </div>
           <div class="stat-item">
             <div class="stat-num">{{ app.stats.readers }}</div>
-            <div class="stat-label">链上读者</div>
+            <div class="stat-label">{{ i18n.t('home.stat.readers') }}</div>
           </div>
           <div class="stat-item">
             <div class="stat-num">{{ app.stats.earnings }}</div>
-            <div class="stat-label">收益总额</div>
+            <div class="stat-label">{{ i18n.t('home.stat.earnings') }}</div>
           </div>
         </div>
       </div>
@@ -126,12 +129,12 @@ const moments = [
         <Icon name="sparkles" :size="24" color="var(--accent-cyan)" />
       </div>
       <div class="nft-strip-text">
-        <div class="nft-strip-title">你的最新文章可以铸造为 NFT</div>
+        <div class="nft-strip-title">{{ i18n.t('home.nft.title') }}</div>
         <div class="nft-strip-sub">「漫游在 DeFi 的星河里」· 已获得 128 次收藏 · 铸造后版权永久归你</div>
       </div>
       <button class="nft-strip-btn">
         <Icon name="hexagon" :size="14" />
-        立即铸造
+        {{ i18n.t('home.nft.btn') }}
       </button>
     </div>
 
@@ -139,10 +142,10 @@ const moments = [
     <div class="section-header">
       <div class="section-title">
         <span class="section-dot"></span>
-        最新文章
+        {{ i18n.t('home.posts') }}
       </div>
       <div class="view-all" @click="router.push({ name: 'archive' })">
-        查看全部
+        {{ i18n.t('home.viewAll') }}
         <Icon name="arrowRight" :size="12" />
       </div>
     </div>
@@ -177,10 +180,10 @@ const moments = [
     <div class="section-header">
       <div class="section-title">
         <span class="section-dot pink"></span>
-        朋友圈动态
+        {{ i18n.t('home.moments') }}
       </div>
       <div class="view-all" @click="router.push({ name: 'moments' })">
-        进入朋友圈
+        {{ i18n.t('home.enterMoments') }}
         <Icon name="arrowRight" :size="12" />
       </div>
     </div>

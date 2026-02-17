@@ -2,8 +2,10 @@
 import { ref } from 'vue'
 import Icon from '../components/icons/Icon.vue'
 import { useProfileStore } from '../stores/profile'
+import { useI18n } from '../stores/i18n'
 
 const profile = useProfileStore()
+const i18n = useI18n()
 const newTag = ref('')
 const saved = ref(false)
 const avatarInput = ref<HTMLInputElement>()
@@ -49,7 +51,7 @@ function handleSave() {
     <Transition name="toast">
       <div v-if="saved" class="save-toast">
         <Icon name="check" :size="14" color="var(--accent-green)" />
-        设置已保存
+        {{ i18n.t('settings.saved') }}
       </div>
     </Transition>
 
@@ -58,7 +60,7 @@ function handleSave() {
       <div class="settings-main">
         <!-- 头像 -->
         <div class="setting-section">
-          <div class="setting-label">头像</div>
+          <div class="setting-label">{{ i18n.t('settings.avatar') }}</div>
           <div class="avatar-upload" @click="handleAvatarClick">
             <div class="avatar-preview">
               <img v-if="profile.avatarUrl" :src="profile.avatarUrl" alt="avatar" class="avatar-img" />
@@ -67,12 +69,12 @@ function handleSave() {
               </svg>
             </div>
             <div class="avatar-upload-info">
-              <div class="avatar-upload-title">点击上传头像</div>
-              <div class="avatar-upload-hint">支持 JPG、PNG，建议 200×200 以上</div>
+              <div class="avatar-upload-title">{{ i18n.t('settings.avatarUpload') }}</div>
+              <div class="avatar-upload-hint">{{ i18n.t('settings.avatarHint') }}</div>
             </div>
             <div class="avatar-upload-btn">
               <Icon name="image" :size="14" />
-              选择图片
+              {{ i18n.t('settings.avatarBtn') }}
             </div>
             <input
               ref="avatarInput"
@@ -86,31 +88,31 @@ function handleSave() {
 
         <!-- 昵称 -->
         <div class="setting-section">
-          <div class="setting-label">昵称</div>
+          <div class="setting-label">{{ i18n.t('settings.nickname') }}</div>
           <input
             v-model="profile.nickname"
             class="setting-input"
             placeholder="你的显示名称"
             maxlength="20"
           />
-          <div class="setting-hint">最多 20 个字符</div>
+          <div class="setting-hint">{{ i18n.t('settings.nicknameHint') }}</div>
         </div>
 
         <!-- 个人签名 -->
         <div class="setting-section">
-          <div class="setting-label">个人签名</div>
+          <div class="setting-label">{{ i18n.t('settings.quote') }}</div>
           <input
             v-model="profile.quote"
             class="setting-input"
             placeholder="一句话介绍自己..."
             maxlength="50"
           />
-          <div class="setting-hint">显示在侧边栏资料卡上</div>
+          <div class="setting-hint">{{ i18n.t('settings.quoteHint') }}</div>
         </div>
 
         <!-- 个人介绍 -->
         <div class="setting-section">
-          <div class="setting-label">个人介绍</div>
+          <div class="setting-label">{{ i18n.t('settings.bio') }}</div>
           <textarea
             v-model="profile.bio"
             class="setting-textarea"
@@ -123,7 +125,7 @@ function handleSave() {
 
         <!-- 标签 -->
         <div class="setting-section">
-          <div class="setting-label">个人标签</div>
+          <div class="setting-label">{{ i18n.t('settings.tags') }}</div>
           <div class="tags-display">
             <span
               v-for="tag in profile.tags"
@@ -141,7 +143,7 @@ function handleSave() {
               <input
                 v-model="newTag"
                 class="tag-input"
-                placeholder="+ 添加标签"
+                :placeholder="i18n.t('settings.addTag')"
                 maxlength="10"
                 @keydown="handleTagKeydown"
               />
@@ -150,12 +152,12 @@ function handleSave() {
               </button>
             </div>
           </div>
-          <div class="setting-hint">最多 6 个标签，按回车添加</div>
+          <div class="setting-hint">{{ i18n.t('settings.tagsHint') }}</div>
         </div>
 
         <!-- 社交链接 -->
         <div class="setting-section">
-          <div class="setting-label">社交链接</div>
+          <div class="setting-label">{{ i18n.t('settings.social') }}</div>
           <div class="social-links">
             <div class="social-row">
               <span class="social-icon">𝕏</span>
@@ -179,13 +181,13 @@ function handleSave() {
         <!-- 保存按钮 -->
         <button class="save-btn" @click="handleSave">
           <Icon name="check" :size="14" />
-          保存设置
+          {{ i18n.t('settings.save') }}
         </button>
       </div>
 
       <!-- 右：预览 -->
       <div class="settings-preview">
-        <div class="preview-label">资料卡预览</div>
+        <div class="preview-label">{{ i18n.t('settings.preview') }}</div>
         <div class="preview-card">
           <div class="preview-avatar">
             <img v-if="profile.avatarUrl" :src="profile.avatarUrl" alt="" class="preview-avatar-img" />
@@ -201,11 +203,11 @@ function handleSave() {
             <span v-for="t in profile.tags" :key="t.id" class="preview-tag">{{ t.label }}</span>
           </div>
           <div class="preview-stats">
-            <div class="ps"><span class="ps-n">42</span> 文章</div>
+            <div class="ps"><span class="ps-n">42</span> {{ i18n.t('profile.posts') }}</div>
             <div class="ps-sep"></div>
-            <div class="ps"><span class="ps-n">18</span> NFT</div>
+            <div class="ps"><span class="ps-n">18</span> {{ i18n.t('profile.nfts') }}</div>
             <div class="ps-sep"></div>
-            <div class="ps"><span class="ps-n">1.2K</span> 读者</div>
+            <div class="ps"><span class="ps-n">1.2K</span> {{ i18n.t('profile.readers') }}</div>
           </div>
         </div>
       </div>

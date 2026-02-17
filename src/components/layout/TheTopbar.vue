@@ -5,62 +5,20 @@ import Icon from '../icons/Icon.vue'
 import WalletModal from '../wallet/WalletModal.vue'
 import { useWallet } from '../../composables/useWallet'
 import { useAppStore } from '../../stores/app'
+import { useI18n, languages } from '../../stores/i18n'
+import type { Locale } from '../../stores/i18n'
 
 const route = useRoute()
 const router = useRouter()
 const wallet = useWallet()
 const app = useAppStore()
+const i18n = useI18n()
 const showDropdown = ref(false)
-const showTtsMenu = ref(false)
-const ttsLang = ref('zh-CN')
-const ttsSpeaking = ref(false)
-
-const ttsLanguages = [
-  { code: 'zh-CN', label: '中文', flag: '🇨🇳' },
-  { code: 'en-US', label: 'English', flag: '🇺🇸' },
-  { code: 'ja-JP', label: '日本語', flag: '🇯🇵' },
-  { code: 'ko-KR', label: '한국어', flag: '🇰🇷' },
-  { code: 'fr-FR', label: 'Français', flag: '🇫🇷' },
-  { code: 'de-DE', label: 'Deutsch', flag: '🇩🇪' },
-  { code: 'es-ES', label: 'Español', flag: '🇪🇸' },
-  { code: 'ru-RU', label: 'Русский', flag: '🇷🇺' },
-]
-
-function toggleTts() {
-  if (ttsSpeaking.value) {
-    window.speechSynthesis.cancel()
-    ttsSpeaking.value = false
-    return
-  }
-  const mainEl = document.querySelector('.main-inner')
-  if (!mainEl) return
-  const text = mainEl.innerText || mainEl.textContent || ''
-  if (!text.trim()) return
-  const utterance = new SpeechSynthesisUtterance(text.slice(0, 3000))
-  utterance.lang = ttsLang.value
-  utterance.rate = 0.95
-  utterance.onend = () => { ttsSpeaking.value = false }
-  utterance.onerror = () => { ttsSpeaking.value = false }
-  window.speechSynthesis.cancel()
-  window.speechSynthesis.speak(utterance)
-  ttsSpeaking.value = true
-}
-
-function selectLang(code: string) {
-  ttsLang.value = code
-  showTtsMenu.value = false
-  if (ttsSpeaking.value) {
-    window.speechSynthesis.cancel()
-    ttsSpeaking.value = false
-  }
-}
-
-function closeTtsMenu() {
-  showTtsMenu.value = false
-}
+const showLangMenu = ref(false)
 
 const pageTitle = computed(() => {
-  return (route.meta?.title as string) || '首页'
+  const name = route.name as string
+  return i18n.t(`page.${name}`) || (route.meta?.title as string) || i18n.t('page.home')
 })
 
 const isHome = computed(() => route.name === 'home')
@@ -71,6 +29,11 @@ function goBack() {
   } else {
     router.push({ name: 'home' })
   }
+}
+
+function selectLang(code: Locale) {
+  i18n.setLocale(code)
+  showLangMenu.value = false
 }
 
 function handleConnectClick() {
@@ -94,7 +57,7 @@ function closeDropdown() {
 <template>
   <div class="topbar">
     <div class="topbar-left">
-      <button v-if="!isHome" class="back-btn" @click="goBack" title="返回上一页">
+      <button v-if="!isHome" class="back-btn" @click="goBack" :title="i18n.t('topbar.back')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M19 12H5" /><path d="M12 19l-7-7 7-7" />
         </svg>
@@ -104,7 +67,7 @@ function closeDropdown() {
 
     <div class="topbar-search">
       <Icon name="search" :size="14" class="search-icon" />
-      <span class="search-placeholder">搜索文章、时光、知识...</span>
+      <span class="search-placeholder">{{ i18n.t('topbar.search') }}</span>
       <span class="search-shortcut">⌘K</span>
     </div>
 
@@ -112,7 +75,7 @@ function closeDropdown() {
       <!-- 布局切换 -->
       <button
         class="topbar-btn layout-toggle"
-        :title="app.layoutMode === 'center' ? '切换为全宽布局' : '切换为居中布局'"
+        :title="app.layoutMode === 'center' ? 'Full width' : 'Centered'"
         @click="app.toggleLayout()"
       >
         <svg v-if="app.layoutMode === 'center'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
@@ -124,48 +87,36 @@ function closeDropdown() {
           <line x1="5" y1="9" x2="19" y2="9" />
         </svg>
       </button>
-      <!-- 语音朗读 -->
-      <div class="tts-wrapper">
+      <!-- 语言切换 -->
+      <div class="lang-wrapper">
         <button
-          class="topbar-btn tts-btn"
-          :class="{ speaking: ttsSpeaking }"
-          title="语音朗读"
-          @click="toggleTts()"
+          class="topbar-btn lang-btn"
+          :title="i18n.t('topbar.lang')"
+          @click="showLangMenu = !showLangMenu"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-            <path v-if="!ttsSpeaking" d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-            <path v-if="!ttsSpeaking" d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-            <line v-if="ttsSpeaking" x1="16" y1="9" x2="22" y2="15" />
-            <line v-if="ttsSpeaking" x1="22" y1="9" x2="16" y2="15" />
+            <circle cx="12" cy="12" r="10" />
+            <ellipse cx="12" cy="12" rx="4" ry="10" />
+            <path d="M2 12h20" />
           </svg>
-        </button>
-        <button
-          class="tts-lang-btn"
-          title="选择语言"
-          @click="showTtsMenu = !showTtsMenu"
-        >
-          <span class="tts-lang-code">{{ ttsLang.split('-')[0] }}</span>
-          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M6 9l6 6 6-6" />
-          </svg>
+          <span class="lang-code">{{ i18n.currentLang.short }}</span>
         </button>
 
         <Transition name="dropdown">
-          <div v-if="showTtsMenu" class="tts-dropdown">
-            <div class="tts-backdrop" @click="closeTtsMenu"></div>
-            <div class="tts-panel">
-              <div class="tts-panel-title">朗读语言</div>
+          <div v-if="showLangMenu" class="lang-dropdown">
+            <div class="lang-backdrop" @click="showLangMenu = false"></div>
+            <div class="lang-panel">
+              <div class="lang-panel-title">{{ i18n.t('topbar.lang') }}</div>
               <button
-                v-for="lang in ttsLanguages"
+                v-for="lang in languages"
                 :key="lang.code"
-                class="tts-lang-item"
-                :class="{ active: ttsLang === lang.code }"
+                class="lang-item"
+                :class="{ active: i18n.locale === lang.code }"
                 @click="selectLang(lang.code)"
               >
-                <span class="tts-flag">{{ lang.flag }}</span>
+                <span class="lang-item-short">{{ lang.short }}</span>
                 <span>{{ lang.label }}</span>
-                <svg v-if="ttsLang === lang.code" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <svg v-if="i18n.locale === lang.code" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
               </button>
@@ -189,7 +140,7 @@ function closeDropdown() {
       >
         <span class="wallet-btn-dot"></span>
         <Icon name="wallet" :size="14" />
-        连接钱包
+        {{ i18n.t('topbar.connect') }}
       </button>
 
       <!-- 已连接：钱包胶囊 -->
@@ -378,63 +329,36 @@ function closeDropdown() {
   position: relative;
 }
 
-/* ═══ 语音朗读 ═══ */
-.tts-wrapper {
-  display: flex;
-  align-items: center;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  overflow: visible;
+/* ═══ 语言切换 ═══ */
+.lang-wrapper {
   position: relative;
 }
-.tts-btn.topbar-btn {
-  border: none;
-  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
-  padding: 8px 10px;
+.lang-btn.topbar-btn {
+  gap: 5px;
 }
-.tts-btn.speaking {
-  color: var(--accent-blue);
-  background: rgba(99, 179, 237, 0.08);
-}
-.tts-lang-btn {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  padding: 8px 8px 8px 6px;
-  border: none;
-  border-left: 1px solid var(--border);
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 10px;
+.lang-code {
+  font-size: 11px;
   font-family: var(--font-mono);
-  cursor: pointer;
-  transition: all 0.15s;
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-}
-.tts-lang-code {
-  text-transform: uppercase;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: 0.5px;
+  color: var(--text-secondary);
 }
-.tts-lang-btn:hover {
+.lang-btn:hover .lang-code {
   color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.03);
 }
 
-/* TTS 语言下拉 */
-.tts-dropdown {
+.lang-dropdown {
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
   z-index: 200;
 }
-.tts-backdrop {
+.lang-backdrop {
   position: fixed;
   inset: 0;
   z-index: 0;
 }
-.tts-panel {
+.lang-panel {
   position: relative;
   z-index: 1;
   width: 180px;
@@ -445,7 +369,7 @@ function closeDropdown() {
   padding: 6px;
   overflow: hidden;
 }
-.tts-panel-title {
+.lang-panel-title {
   font-size: 10px;
   color: var(--text-muted);
   font-family: var(--font-mono);
@@ -453,7 +377,7 @@ function closeDropdown() {
   padding: 6px 10px 4px;
   text-transform: uppercase;
 }
-.tts-lang-item {
+.lang-item {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -468,19 +392,25 @@ function closeDropdown() {
   background: transparent;
   text-align: left;
 }
-.tts-lang-item:hover {
+.lang-item:hover {
   background: rgba(99, 179, 237, 0.07);
   color: var(--text-primary);
 }
-.tts-lang-item.active {
+.lang-item.active {
   color: var(--accent-blue);
   background: rgba(99, 179, 237, 0.1);
 }
-.tts-lang-item svg {
+.lang-item svg {
   margin-left: auto;
 }
-.tts-flag {
-  font-size: 15px;
+.lang-item-short {
+  display: inline-block;
+  width: 22px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.3px;
 }
 
 /* ═══ 连接钱包按钮（未连接状态）═══ */

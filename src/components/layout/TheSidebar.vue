@@ -4,11 +4,13 @@ import { computed } from 'vue'
 import Icon from '../icons/Icon.vue'
 import { useProfileStore } from '../../stores/profile'
 import { useAppStore } from '../../stores/app'
+import { useI18n } from '../../stores/i18n'
 
 const route = useRoute()
 const router = useRouter()
 const profile = useProfileStore()
 const app = useAppStore()
+const i18n = useI18n()
 
 interface NavItem {
   name: string
@@ -19,26 +21,26 @@ interface NavItem {
 
 const navSections = computed(() => [
   {
-    label: '探索',
+    label: i18n.t('nav.explore'),
     items: [
-      { name: 'home', label: '首页', icon: 'home' },
-      { name: 'album', label: '相册', icon: 'album' },
-      { name: 'timeline', label: '时光', icon: 'timeline' },
-      { name: 'moments', label: '朋友圈', icon: 'moments', badge: 3 },
+      { name: 'home', label: i18n.t('nav.home'), icon: 'home' },
+      { name: 'album', label: i18n.t('nav.album'), icon: 'album' },
+      { name: 'timeline', label: i18n.t('nav.timeline'), icon: 'timeline' },
+      { name: 'moments', label: i18n.t('nav.moments'), icon: 'moments', badge: 3 },
     ] as NavItem[]
   },
   {
-    label: '知识',
+    label: i18n.t('nav.knowledge'),
     items: [
-      { name: 'knowledge', label: '知识库', icon: 'knowledge' },
-      { name: 'archive', label: '归档', icon: 'archive' },
+      { name: 'knowledge', label: i18n.t('nav.knowledgeBase'), icon: 'knowledge' },
+      { name: 'archive', label: i18n.t('nav.archive'), icon: 'archive' },
     ] as NavItem[]
   },
   {
-    label: '社交',
+    label: i18n.t('nav.social'),
     items: [
-      { name: 'friends', label: '友链', icon: 'friends' },
-      { name: 'chat', label: '私信', icon: 'chat', badge: 2 },
+      { name: 'friends', label: i18n.t('nav.friends'), icon: 'friends' },
+      { name: 'chat', label: i18n.t('nav.chat'), icon: 'chat', badge: 2 },
     ] as NavItem[]
   }
 ])
@@ -96,11 +98,11 @@ function isActive(name: string) {
           <span v-for="t in profile.tags" :key="t.id" class="profile-tag">{{ t.label }}</span>
         </div>
         <div class="profile-stats">
-          <div class="pstat"><span class="pstat-n">42</span> 文章</div>
+          <div class="pstat"><span class="pstat-n">42</span> {{ i18n.t('profile.posts') }}</div>
           <div class="pstat-sep"></div>
-          <div class="pstat"><span class="pstat-n">18</span> NFT</div>
+          <div class="pstat"><span class="pstat-n">18</span> {{ i18n.t('profile.nfts') }}</div>
           <div class="pstat-sep"></div>
-          <div class="pstat"><span class="pstat-n">1.2K</span> 读者</div>
+          <div class="pstat"><span class="pstat-n">1.2K</span> {{ i18n.t('profile.readers') }}</div>
         </div>
       </div>
 
@@ -124,7 +126,7 @@ function isActive(name: string) {
       <div class="sidebar-footer">
         <button class="publish-btn" @click="router.push({ name: 'home' })">
           <Icon name="edit" :size="14" />
-          发布新文章
+          {{ i18n.t('nav.publish') }}
         </button>
       </div>
     </template>
@@ -156,7 +158,7 @@ function isActive(name: string) {
       </nav>
 
       <div class="c-bottom">
-        <button class="c-nav-btn" title="发布新文章" @click="router.push({ name: 'home' })">
+        <button class="c-nav-btn" :title="i18n.t('nav.publish')" @click="router.push({ name: 'home' })">
           <Icon name="edit" :size="18" />
         </button>
       </div>
