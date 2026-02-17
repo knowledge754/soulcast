@@ -73,9 +73,14 @@ const metaChain = computed(() => chains.find(c => c.key === selectedChain.value)
 
 /* ═══ Seal action ═══ */
 const showSealOverlay = ref(false)
+const sealPhase = ref(0)
 function sealCapsule() {
   showSealOverlay.value = true
-  setTimeout(() => { showSealOverlay.value = false; activeTab.value = 'mine' }, 3000)
+  sealPhase.value = 1
+  setTimeout(() => { sealPhase.value = 2 }, 1200)
+  setTimeout(() => { sealPhase.value = 3 }, 3000)
+  setTimeout(() => { sealPhase.value = 4 }, 4500)
+  setTimeout(() => { showSealOverlay.value = false; sealPhase.value = 0; activeTab.value = 'mine' }, 6000)
 }
 
 /* ═══ My Capsules ═══ */
@@ -606,14 +611,84 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
       </div>
     </Transition>
 
-    <!-- Seal Overlay -->
+    <!-- Seal Overlay — 黑洞漩涡仪式 -->
     <Teleport to="body">
       <Transition name="ss-overlay">
         <div v-if="showSealOverlay" class="seal-overlay">
-          <div class="seal-anim">
-            <div class="seal-orb-big"></div>
-            <div class="seal-text">胶囊正在从黑洞中浮现…</div>
-            <div class="seal-sub">验证链上签名 · 解密内容 · 铸造纪念 NFT</div>
+          <!-- 背景星尘 -->
+          <div class="so-stars">
+            <div v-for="i in 60" :key="i" class="so-star"
+              :style="{
+                left: Math.random() * 100 + '%',
+                top: Math.random() * 100 + '%',
+                width: (Math.random() * 2 + 0.5) + 'px',
+                height: (Math.random() * 2 + 0.5) + 'px',
+                animationDuration: (2 + Math.random() * 4) + 's',
+                animationDelay: (Math.random() * 3) + 's'
+              }"
+            ></div>
+          </div>
+
+          <!-- 黑洞主体 -->
+          <div class="so-blackhole" :class="'phase-' + sealPhase">
+            <!-- 外层辉光 -->
+            <div class="so-outer-glow"></div>
+            <!-- 吸积盘 -->
+            <div class="so-accretion"></div>
+            <div class="so-accretion-inner"></div>
+            <!-- 光子环 -->
+            <div class="so-photon"></div>
+            <!-- 引力透镜扭曲环 -->
+            <div class="so-lens-ring r1"></div>
+            <div class="so-lens-ring r2"></div>
+            <div class="so-lens-ring r3"></div>
+            <!-- 轨道粒子 -->
+            <div class="so-orbit-p" v-for="j in 8" :key="j"
+              :style="{
+                animationDuration: (4 + j * 0.8) + 's',
+                animationDirection: j % 2 === 0 ? 'reverse' : 'normal',
+                animationDelay: (j * 0.3) + 's',
+                '--p-color': ['#fbbf24','#60a5fa','#a78bfa','#f472b6','#34d399','#22d3ee','#f59e0b','#fff'][j-1],
+                '--p-size': (2 + Math.random() * 2) + 'px',
+                '--p-dist': (120 + j * 12) + 'px'
+              }"
+            ></div>
+            <!-- 被吸入的胶囊球 -->
+            <div class="so-capsule-orb" :class="{ sucked: sealPhase >= 2 }"></div>
+            <!-- 黑洞核心 -->
+            <div class="so-void" :class="{ expanded: sealPhase >= 3 }"></div>
+          </div>
+
+          <!-- 文字层 -->
+          <div class="so-text-layer">
+            <Transition name="so-txt" mode="out-in">
+              <div v-if="sealPhase === 1" key="p1" class="so-phase-text">
+                <div class="so-title">正在连接黑洞…</div>
+                <div class="so-sub">引力场已锁定 · 开始吸入胶囊</div>
+              </div>
+              <div v-else-if="sealPhase === 2" key="p2" class="so-phase-text">
+                <div class="so-title">胶囊正在被吞噬…</div>
+                <div class="so-sub">加密内容 · 上传 IPFS · 写入智能合约</div>
+              </div>
+              <div v-else-if="sealPhase === 3" key="p3" class="so-phase-text">
+                <div class="so-title">封印完成</div>
+                <div class="so-sub">你的记忆已被宇宙保管 · 铸造纪念 NFT</div>
+              </div>
+              <div v-else-if="sealPhase === 4" key="p4" class="so-phase-text">
+                <div class="so-title done">✦ 星封成功</div>
+                <div class="so-sub">等待开启的那一天…</div>
+              </div>
+            </Transition>
+            <!-- 进度条 -->
+            <div class="so-progress">
+              <div class="so-progress-bar" :style="{ width: sealPhase * 25 + '%' }"></div>
+            </div>
+            <div class="so-progress-steps">
+              <span :class="{ active: sealPhase >= 1 }">连接</span>
+              <span :class="{ active: sealPhase >= 2 }">加密</span>
+              <span :class="{ active: sealPhase >= 3 }">上链</span>
+              <span :class="{ active: sealPhase >= 4 }">完成</span>
+            </div>
           </div>
         </div>
       </Transition>
@@ -1270,23 +1345,233 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 }
 .rc-action:hover { opacity: 0.7; }
 
-/* ═══ SEAL OVERLAY ═══ */
+/* ═══ SEAL OVERLAY — 黑洞漩涡仪式 ═══ */
 .seal-overlay {
-  position: fixed; inset: 0; background: rgba(2,4,8,0.95); z-index: 9999;
-  display: flex; align-items: center; justify-content: center;
+  position: fixed; inset: 0;
+  background: radial-gradient(ellipse at center, #020510 0%, #000 100%);
+  z-index: 9999;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  overflow: hidden;
 }
-.seal-anim { text-align: center; }
-.seal-orb-big {
-  width: 80px; height: 80px; border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #93c5fd, #1d4ed8);
-  box-shadow: 0 0 60px rgba(96,165,250,0.5);
-  margin: 0 auto 20px; animation: orbFloat 2s ease-in-out infinite;
-}
-.seal-text { font-size: 26px; color: var(--text-primary); margin-bottom: 10px; }
-.seal-sub { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); }
 
-.ss-overlay-enter-active { transition: opacity 0.3s; }
-.ss-overlay-leave-active { transition: opacity 0.5s; }
+/* 背景星尘 */
+.so-stars { position: absolute; inset: 0; pointer-events: none; }
+.so-star {
+  position: absolute; border-radius: 50%; background: white;
+  animation: soTwinkle 3s ease-in-out infinite alternate;
+}
+@keyframes soTwinkle { from { opacity: 0.05; } to { opacity: 0.7; } }
+
+/* 黑洞容器 */
+.so-blackhole {
+  width: 340px; height: 340px;
+  position: relative;
+  margin-bottom: 40px;
+  transition: transform 1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.so-blackhole.phase-3, .so-blackhole.phase-4 {
+  transform: scale(1.15);
+}
+
+/* 外层辉光 */
+.so-outer-glow {
+  position: absolute; inset: -60px;
+  border-radius: 50%;
+  background: radial-gradient(circle,
+    rgba(96,165,250,0.06) 0%,
+    rgba(167,139,250,0.04) 30%,
+    transparent 70%
+  );
+  animation: soGlowPulse 3s ease-in-out infinite;
+}
+@keyframes soGlowPulse { 0%,100% { opacity: 0.4; transform: scale(1); } 50% { opacity: 1; transform: scale(1.08); } }
+
+/* 吸积盘 — 主漩涡 */
+.so-accretion {
+  position: absolute; inset: -10px;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    rgba(251,191,36,0.0) 0deg,
+    rgba(251,191,36,0.5) 30deg,
+    rgba(251,113,94,0.6) 60deg,
+    rgba(244,114,182,0.5) 90deg,
+    rgba(251,191,36,0.3) 120deg,
+    rgba(96,165,250,0.4) 150deg,
+    rgba(167,139,250,0.6) 200deg,
+    rgba(34,211,238,0.4) 240deg,
+    rgba(96,165,250,0.3) 280deg,
+    rgba(251,191,36,0.2) 320deg,
+    rgba(251,191,36,0.0) 360deg
+  );
+  animation: soDiskSpin 6s linear infinite;
+  filter: blur(10px);
+  opacity: 0.8;
+}
+.so-accretion-inner {
+  position: absolute; inset: 20px;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 180deg,
+    rgba(96,165,250,0.0) 0deg,
+    rgba(96,165,250,0.4) 60deg,
+    rgba(167,139,250,0.5) 120deg,
+    rgba(251,191,36,0.3) 180deg,
+    rgba(244,114,182,0.4) 240deg,
+    rgba(34,211,238,0.3) 300deg,
+    rgba(96,165,250,0.0) 360deg
+  );
+  animation: soDiskSpin 4s linear infinite reverse;
+  filter: blur(6px);
+  opacity: 0.6;
+}
+@keyframes soDiskSpin { to { transform: rotate(360deg); } }
+
+/* 光子环 */
+.so-photon {
+  position: absolute; inset: 50px;
+  border-radius: 50%;
+  border: 2.5px solid rgba(251,191,36,0.6);
+  box-shadow:
+    0 0 30px rgba(251,191,36,0.4),
+    0 0 60px rgba(251,191,36,0.15),
+    inset 0 0 30px rgba(251,191,36,0.15);
+  animation: soPhotonSpin 3.5s linear infinite;
+}
+@keyframes soPhotonSpin { to { transform: rotate(-360deg); } }
+
+/* 引力透镜环 */
+.so-lens-ring {
+  position: absolute; border-radius: 50%;
+  border: 1px solid rgba(96,165,250,0.15);
+  animation: soLensWave 4s ease-in-out infinite;
+}
+.so-lens-ring.r1 { inset: 35px; animation-delay: 0s; border-color: rgba(167,139,250,0.2); }
+.so-lens-ring.r2 { inset: 65px; animation-delay: 0.5s; }
+.so-lens-ring.r3 { inset: 80px; animation-delay: 1s; border-color: rgba(34,211,238,0.15); }
+@keyframes soLensWave {
+  0%,100% { transform: scale(1) rotate(0deg); opacity: 0.3; }
+  50% { transform: scale(1.06) rotate(15deg); opacity: 0.8; }
+}
+
+/* 轨道粒子 */
+.so-orbit-p {
+  position: absolute;
+  width: var(--p-size, 3px); height: var(--p-size, 3px);
+  border-radius: 50%;
+  background: var(--p-color, white);
+  box-shadow: 0 0 6px var(--p-color, white);
+  left: 50%; top: 50%;
+  margin-left: calc(var(--p-size, 3px) / -2);
+  margin-top: calc(0px - var(--p-dist, 130px));
+  transform-origin: calc(var(--p-size, 3px) / 2) var(--p-dist, 130px);
+  animation: soOrbit 5s linear infinite;
+}
+@keyframes soOrbit { to { transform: rotate(360deg); } }
+
+/* 被吸入的胶囊球 */
+.so-capsule-orb {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 40px; height: 40px;
+  margin: -20px 0 0 -20px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #93c5fd, #1d4ed8);
+  box-shadow: 0 0 40px rgba(96,165,250,0.6), 0 0 80px rgba(96,165,250,0.3);
+  z-index: 10;
+  transition: all 1.5s cubic-bezier(0.55, 0, 0.1, 1);
+  animation: soCapsuleFloat 2s ease-in-out infinite;
+}
+.so-capsule-orb.sucked {
+  width: 0; height: 0; margin: 0 0 0 0;
+  opacity: 0;
+  box-shadow: 0 0 100px rgba(96,165,250,0.9), 0 0 200px rgba(167,139,250,0.4);
+  animation: none;
+}
+@keyframes soCapsuleFloat {
+  0%,100% { transform: translate(0, -60px) scale(1); }
+  50% { transform: translate(0, -55px) scale(1.05); }
+}
+
+/* 黑洞核心 */
+.so-void {
+  position: absolute; inset: 95px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #000000 50%, #030712 80%, rgba(96,165,250,0.03) 100%);
+  box-shadow:
+    0 0 60px rgba(0,0,0,0.9),
+    0 0 120px rgba(0,0,0,0.6),
+    inset 0 0 40px rgba(96,165,250,0.04);
+  z-index: 5;
+  transition: all 1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.so-void.expanded {
+  inset: 85px;
+  box-shadow:
+    0 0 80px rgba(0,0,0,0.95),
+    0 0 160px rgba(0,0,0,0.7),
+    inset 0 0 60px rgba(52,211,153,0.06);
+}
+
+/* 文字层 */
+.so-text-layer {
+  text-align: center;
+  z-index: 20;
+  position: relative;
+}
+.so-phase-text { min-height: 80px; }
+.so-title {
+  font-size: 24px; font-weight: 600;
+  color: var(--text-primary, #e8f4ff);
+  margin-bottom: 8px;
+  letter-spacing: 1px;
+}
+.so-title.done {
+  font-size: 28px;
+  background: linear-gradient(135deg, var(--star-gold), var(--star-cyan));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.so-sub {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted, #475569);
+  letter-spacing: 0.5px;
+}
+
+/* 文字过渡 */
+.so-txt-enter-active { transition: all 0.4s ease; }
+.so-txt-leave-active { transition: all 0.2s ease; }
+.so-txt-enter-from { opacity: 0; transform: translateY(10px); }
+.so-txt-leave-to { opacity: 0; transform: translateY(-10px); }
+
+/* 进度条 */
+.so-progress {
+  width: 240px; height: 3px;
+  background: rgba(96,165,250,0.1);
+  border-radius: 2px;
+  margin: 24px auto 10px;
+  overflow: hidden;
+}
+.so-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--star-blue), var(--star-purple), var(--star-cyan));
+  border-radius: 2px;
+  transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 10px rgba(96,165,250,0.4);
+}
+.so-progress-steps {
+  display: flex; justify-content: space-between;
+  width: 240px; margin: 0 auto;
+  font-size: 10px; font-family: var(--font-mono);
+  color: var(--text-muted, #475569);
+  letter-spacing: 0.5px;
+}
+.so-progress-steps span.active { color: var(--star-blue); }
+
+/* Overlay 过渡 */
+.ss-overlay-enter-active { transition: opacity 0.5s; }
+.ss-overlay-leave-active { transition: opacity 0.8s ease-out; }
 .ss-overlay-enter-from, .ss-overlay-leave-to { opacity: 0; }
 
 /* ═══ Responsive ═══ */
