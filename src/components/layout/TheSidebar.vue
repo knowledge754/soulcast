@@ -25,7 +25,7 @@ const navSections = computed(() => [
     items: [
       { name: 'home', label: i18n.t('nav.home'), icon: 'home' },
       { name: 'album', label: i18n.t('nav.album'), icon: 'album' },
-      { name: 'timeline', label: i18n.t('nav.timeline'), icon: 'timeline' },
+      { name: 'starsealed', label: i18n.t('nav.starsealed'), icon: 'timeline' },
       { name: 'moments', label: i18n.t('nav.moments'), icon: 'moments', badge: 3 },
     ] as NavItem[]
   },

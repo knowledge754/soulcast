@@ -16,10 +16,10 @@ const router = createRouter({
       meta: { title: '相册' }
     },
     {
-      path: '/timeline',
-      name: 'timeline',
-      component: () => import('../views/TimelinePage.vue'),
-      meta: { title: '时光' }
+      path: '/starsealed',
+      name: 'starsealed',
+      component: () => import('../views/StarSealedPage.vue'),
+      meta: { title: '星封' }
     },
     {
       path: '/moments',
