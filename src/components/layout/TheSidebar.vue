@@ -56,51 +56,41 @@ function isActive(name: string) {
 
 <template>
   <aside class="sidebar" :class="{ collapsed }">
-    <!-- Brand + Toggle -->
-    <div class="brand-bar">
-      <div class="brand" @click="collapsed && app.toggleSidebar()">
-        <div class="brand-logo">
-          <Icon name="hexagon" :size="18" color="white" />
-        </div>
-        <Transition name="fade-text">
-          <div v-if="!collapsed" class="brand-text">
+    <!-- ====== 展开态 ====== -->
+    <template v-if="!collapsed">
+      <div class="brand-bar">
+        <div class="brand">
+          <div class="brand-logo">
+            <Icon name="hexagon" :size="18" color="white" />
+          </div>
+          <div class="brand-text">
             <div class="brand-name">ChainLog</div>
             <div class="brand-sub">WEB3 · BLOG · SOUL</div>
           </div>
-        </Transition>
-      </div>
-      <button class="collapse-btn" @click="app.toggleSidebar()" :title="collapsed ? '展开侧边栏' : '折叠侧边栏'">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-          <template v-if="!collapsed">
+        </div>
+        <button class="collapse-btn" @click="app.toggleSidebar()" title="折叠侧边栏">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="3" width="18" height="18" rx="3" />
             <line x1="9" y1="3" x2="9" y2="21" />
             <path d="M15 10l-2 2 2 2" />
-          </template>
-          <template v-else>
-            <rect x="3" y="3" width="18" height="18" rx="3" />
-            <line x1="9" y1="3" x2="9" y2="21" />
-            <path d="M14 10l2 2-2 2" />
-          </template>
-        </svg>
-      </button>
-    </div>
-
-    <!-- 个人资料卡 -->
-    <div class="profile-card" @click="collapsed && app.toggleSidebar()">
-      <div class="profile-row">
-        <div class="profile-avatar">
-          <img v-if="profile.avatarUrl" :src="profile.avatarUrl" alt="" class="avatar-img" />
-          <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M18 20a6 6 0 0 0-12 0"/><circle cx="12" cy="10" r="4"/>
           </svg>
-          <span class="avatar-dot"></span>
-        </div>
-        <div v-if="!collapsed" class="profile-info">
-          <div class="profile-name">{{ profile.nickname }}</div>
-          <div class="profile-addr">0x7a3F...8cB2</div>
-        </div>
+        </button>
       </div>
-      <template v-if="!collapsed">
+
+      <div class="profile-card">
+        <div class="profile-row">
+          <div class="profile-avatar">
+            <img v-if="profile.avatarUrl" :src="profile.avatarUrl" alt="" class="avatar-img" />
+            <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 20a6 6 0 0 0-12 0"/><circle cx="12" cy="10" r="4"/>
+            </svg>
+            <span class="avatar-dot"></span>
+          </div>
+          <div class="profile-info">
+            <div class="profile-name">{{ profile.nickname }}</div>
+            <div class="profile-addr">0x7a3F...8cB2</div>
+          </div>
+        </div>
         <div v-if="profile.quote" class="profile-quote">"{{ profile.quote }}"</div>
         <div v-if="profile.tags.length" class="profile-tags">
           <span v-for="t in profile.tags" :key="t.id" class="profile-tag">{{ t.label }}</span>
@@ -112,45 +102,72 @@ function isActive(name: string) {
           <div class="pstat-sep"></div>
           <div class="pstat"><span class="pstat-n">1.2K</span> 读者</div>
         </div>
-      </template>
-    </div>
-
-    <!-- Navigation -->
-    <nav class="nav">
-      <div
-        v-for="section in navSections"
-        :key="section.label"
-        class="nav-section"
-      >
-        <div v-if="!collapsed" class="nav-section-label">{{ section.label }}</div>
-        <div v-else class="nav-section-divider"></div>
-        <div
-          v-for="item in section.items"
-          :key="item.name"
-          class="nav-item"
-          :class="{ active: isActive(item.name) }"
-          :title="collapsed ? item.label : ''"
-          @click="navigateTo(item.name)"
-        >
-          <Icon :name="item.icon" :size="16" class="nav-icon" />
-          <span v-if="!collapsed" class="nav-label">{{ item.label }}</span>
-          <span v-if="item.badge && !collapsed" class="nav-badge">{{ item.badge }}</span>
-          <span v-if="item.badge && collapsed" class="nav-badge-dot"></span>
-        </div>
       </div>
-    </nav>
 
-    <!-- Footer -->
-    <div class="sidebar-footer">
-      <button class="publish-btn" @click="router.push({ name: 'home' })" :title="collapsed ? '发布新文章' : ''">
-        <Icon name="edit" :size="14" />
-        <span v-if="!collapsed">发布新文章</span>
-      </button>
-    </div>
+      <nav class="nav">
+        <div v-for="section in navSections" :key="section.label" class="nav-section">
+          <div class="nav-section-label">{{ section.label }}</div>
+          <div
+            v-for="item in section.items"
+            :key="item.name"
+            class="nav-item"
+            :class="{ active: isActive(item.name) }"
+            @click="navigateTo(item.name)"
+          >
+            <Icon :name="item.icon" :size="16" class="nav-icon" />
+            <span class="nav-label">{{ item.label }}</span>
+            <span v-if="item.badge" class="nav-badge">{{ item.badge }}</span>
+          </div>
+        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <button class="publish-btn" @click="router.push({ name: 'home' })">
+          <Icon name="edit" :size="14" />
+          发布新文章
+        </button>
+      </div>
+    </template>
+
+    <!-- ====== 折叠态 ====== -->
+    <template v-else>
+      <!-- Logo 点击展开 -->
+      <div class="c-logo" @click="app.toggleSidebar()" title="展开侧边栏">
+        <Icon name="hexagon" :size="20" color="var(--accent-cyan)" />
+      </div>
+
+      <div class="c-sep"></div>
+
+      <!-- 导航图标 -->
+      <nav class="c-nav">
+        <template v-for="section in navSections" :key="section.label">
+          <button
+            v-for="item in section.items"
+            :key="item.name"
+            class="c-nav-btn"
+            :class="{ active: isActive(item.name) }"
+            :title="item.label"
+            @click="navigateTo(item.name)"
+          >
+            <Icon :name="item.icon" :size="18" />
+            <span v-if="item.badge" class="c-badge"></span>
+          </button>
+        </template>
+      </nav>
+
+      <div class="c-bottom">
+        <button class="c-nav-btn" title="发布新文章" @click="router.push({ name: 'home' })">
+          <Icon name="edit" :size="18" />
+        </button>
+      </div>
+    </template>
   </aside>
 </template>
 
 <style scoped>
+/* ═══════════════════════════════════
+   Sidebar — 展开态
+   ═══════════════════════════════════ */
 .sidebar {
   width: var(--sidebar-width);
   flex-shrink: 0;
@@ -167,11 +184,13 @@ function isActive(name: string) {
   z-index: var(--z-sidebar);
   overflow-y: auto;
   overflow-x: hidden;
-  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              padding 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .sidebar.collapsed {
   width: var(--sidebar-collapsed-width);
-  padding: 20px 10px;
+  padding: 16px 0;
+  align-items: center;
 }
 
 /* ── Brand Bar ── */
@@ -187,10 +206,6 @@ function isActive(name: string) {
   align-items: center;
   gap: 10px;
   min-width: 0;
-  cursor: default;
-}
-.collapsed .brand {
-  cursor: pointer;
 }
 .brand-logo {
   width: 36px;
@@ -236,25 +251,13 @@ function isActive(name: string) {
   flex-shrink: 0;
   background: transparent;
   border: none;
-  opacity: 0.5;
+  opacity: 0.4;
 }
 .collapse-btn:hover {
   background: rgba(99, 179, 237, 0.1);
   color: var(--accent-blue);
   opacity: 1;
 }
-.collapsed .collapse-btn {
-  margin: 0 auto;
-  opacity: 0.6;
-}
-.collapsed .collapse-btn:hover {
-  opacity: 1;
-}
-
-/* ── Fade transition for text ── */
-.fade-text-enter-active { transition: opacity 0.2s 0.1s; }
-.fade-text-leave-active { transition: opacity 0.15s; }
-.fade-text-enter-from, .fade-text-leave-to { opacity: 0; }
 
 /* ═══ 个人资料卡 ═══ */
 .profile-card {
@@ -263,24 +266,13 @@ function isActive(name: string) {
   border-radius: 12px;
   padding: 14px;
   margin-bottom: 16px;
-  transition: padding 0.3s;
 }
-.collapsed .profile-card {
-  padding: 10px 6px;
-  cursor: pointer;
-}
-
 .profile-row {
   display: flex;
   align-items: center;
   gap: 10px;
   margin-bottom: 8px;
 }
-.collapsed .profile-row {
-  justify-content: center;
-  margin-bottom: 0;
-}
-
 .profile-avatar {
   width: 38px;
   height: 38px;
@@ -293,10 +285,6 @@ function isActive(name: string) {
   position: relative;
   box-shadow: 0 0 12px rgba(99, 179, 237, 0.2);
   overflow: hidden;
-}
-.collapsed .profile-avatar {
-  width: 34px;
-  height: 34px;
 }
 .avatar-img {
   width: 100%;
@@ -315,7 +303,6 @@ function isActive(name: string) {
   border: 2px solid var(--bg-card);
   box-shadow: 0 0 6px var(--accent-green);
 }
-
 .profile-info {
   min-width: 0;
   overflow: hidden;
@@ -335,7 +322,6 @@ function isActive(name: string) {
   color: var(--accent-blue);
   opacity: 0.8;
 }
-
 .profile-quote {
   font-size: 11px;
   color: var(--text-muted);
@@ -344,7 +330,6 @@ function isActive(name: string) {
   font-family: var(--font-display);
   margin-bottom: 8px;
 }
-
 .profile-tags {
   display: flex;
   gap: 4px;
@@ -359,14 +344,12 @@ function isActive(name: string) {
   color: var(--text-muted);
   font-family: var(--font-mono);
 }
-
 .profile-stats {
   border-top: 1px solid var(--border);
   padding-top: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0;
 }
 .pstat {
   flex: 1;
@@ -389,7 +372,7 @@ function isActive(name: string) {
   flex-shrink: 0;
 }
 
-/* ── Nav ── */
+/* ── Nav (展开态) ── */
 .nav {
   flex: 1;
   overflow-y: auto;
@@ -406,13 +389,6 @@ function isActive(name: string) {
   padding: 0 8px;
   margin-bottom: 6px;
   text-transform: uppercase;
-  white-space: nowrap;
-  overflow: hidden;
-}
-.nav-section-divider {
-  height: 1px;
-  background: var(--border);
-  margin: 4px 6px 8px;
 }
 .nav-item {
   display: flex;
@@ -426,12 +402,6 @@ function isActive(name: string) {
   color: var(--text-secondary);
   position: relative;
   margin-bottom: 1px;
-  white-space: nowrap;
-  overflow: hidden;
-}
-.collapsed .nav-item {
-  justify-content: center;
-  padding: 10px;
 }
 .nav-item:hover {
   background: rgba(99, 179, 237, 0.07);
@@ -457,10 +427,6 @@ function isActive(name: string) {
   flex-shrink: 0;
   text-align: center;
 }
-.nav-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 .nav-badge {
   margin-left: auto;
   background: var(--accent-purple);
@@ -470,17 +436,8 @@ function isActive(name: string) {
   border-radius: var(--radius-full);
   flex-shrink: 0;
 }
-.nav-badge-dot {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--accent-purple);
-}
 
-/* ── Footer ── */
+/* ── Footer (展开态) ── */
 .sidebar-footer {
   border-top: 1px solid var(--border);
   padding-top: 14px;
@@ -503,11 +460,102 @@ function isActive(name: string) {
   gap: 8px;
   transition: all var(--transition-base);
   box-shadow: 0 4px 20px rgba(99, 179, 237, 0.25);
-  white-space: nowrap;
-  overflow: hidden;
 }
 .publish-btn:hover {
   transform: translateY(-1px);
   box-shadow: 0 6px 25px rgba(99, 179, 237, 0.4);
+}
+
+/* ═══════════════════════════════════
+   Sidebar — 折叠态（精致图标栏）
+   ═══════════════════════════════════ */
+
+/* Logo */
+.c-logo {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: rgba(99, 179, 237, 0.06);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.c-logo:hover {
+  background: rgba(99, 179, 237, 0.12);
+  border-color: var(--border-hover);
+  box-shadow: 0 0 16px rgba(99, 179, 237, 0.15);
+}
+
+.c-sep {
+  width: 28px;
+  height: 1px;
+  background: var(--border);
+  margin: 14px 0;
+  flex-shrink: 0;
+}
+
+/* 折叠态导航 */
+.c-nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  overflow-y: auto;
+}
+.c-nav-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  background: transparent;
+  position: relative;
+  flex-shrink: 0;
+}
+.c-nav-btn:hover {
+  background: rgba(99, 179, 237, 0.08);
+  color: var(--text-primary);
+}
+.c-nav-btn.active {
+  background: rgba(99, 179, 237, 0.12);
+  color: var(--accent-blue);
+}
+.c-nav-btn.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 20px;
+  background: var(--accent-blue);
+  border-radius: 0 3px 3px 0;
+}
+.c-badge {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent-purple);
+  box-shadow: 0 0 6px var(--accent-purple);
+}
+
+/* 折叠态底部 */
+.c-bottom {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  flex-shrink: 0;
 }
 </style>
