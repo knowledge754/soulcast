@@ -421,52 +421,68 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
             <div class="sidebar-card">
               <div class="card-label">胶囊预览</div>
               <div class="capsule-visual">
-                <!-- 星云背景 -->
-                <div class="cv-nebula"></div>
-                <!-- 吸积盘 -->
-                <div class="cv-accretion" :class="capsuleType"></div>
-                <!-- 脉冲环 -->
-                <div class="cv-ring r1"></div>
-                <div class="cv-ring r2"></div>
-                <div class="cv-ring r3"></div>
-                <div class="cv-ring r4"></div>
-                <!-- 星尘粒子 -->
-                <div class="cv-particles">
-                  <div v-for="i in 20" :key="i" class="cv-particle"
+                <!-- 深空背景 -->
+                <div class="cv-deep-space"></div>
+                <!-- 能量场 -->
+                <div class="cv-energy-field" :class="capsuleType"></div>
+                <!-- 星尘 -->
+                <div class="cv-stardust">
+                  <div v-for="i in 25" :key="i" class="cv-dust"
                     :style="{
-                      left: (10 + Math.random() * 80) + '%',
-                      top: (10 + Math.random() * 80) + '%',
-                      width: (0.5 + Math.random() * 2) + 'px',
-                      height: (0.5 + Math.random() * 2) + 'px',
+                      left: (5 + Math.random() * 90) + '%',
+                      top: (5 + Math.random() * 90) + '%',
+                      width: (0.5 + Math.random() * 1.5) + 'px',
+                      height: (0.5 + Math.random() * 1.5) + 'px',
                       animationDuration: (3 + Math.random() * 5) + 's',
-                      animationDelay: (Math.random() * 4) + 's',
-                      '--drift-x': (-15 + Math.random() * 30) + 'px',
-                      '--drift-y': (-20 - Math.random() * 15) + 'px'
+                      animationDelay: (Math.random() * 4) + 's'
                     }"
                   ></div>
                 </div>
-                <!-- 轨道粒子 -->
-                <div class="cv-orbit" v-for="k in 4" :key="'o'+k"
+                <!-- 六角防护罩 -->
+                <svg class="cv-hex-shield" viewBox="0 0 200 200" fill="none">
+                  <polygon points="100,10 178,55 178,145 100,190 22,145 22,55" stroke="rgba(96,165,250,0.12)" stroke-width="0.8" fill="none" />
+                  <polygon points="100,25 168,63 168,137 100,175 32,137 32,63" stroke="rgba(167,139,250,0.08)" stroke-width="0.5" fill="none" stroke-dasharray="3 5" />
+                  <polygon points="100,40 158,71 158,129 100,160 42,129 42,71" stroke="rgba(34,211,238,0.06)" stroke-width="0.5" fill="none" stroke-dasharray="2 6" />
+                </svg>
+                <!-- 数据流轨道环 -->
+                <div class="cv-data-ring r1" :class="capsuleType"></div>
+                <div class="cv-data-ring r2"></div>
+                <!-- 轨道光点 -->
+                <div class="cv-orbit-dot" v-for="k in 5" :key="'od'+k"
                   :style="{
-                    animationDuration: (5 + k * 1.5) + 's',
+                    animationDuration: (4 + k * 1.2) + 's',
                     animationDirection: k % 2 === 0 ? 'reverse' : 'normal',
-                    '--orb-dist': (45 + k * 14) + 'px',
-                    '--orb-color': ['#fbbf24','#60a5fa','#a78bfa','#34d399'][k-1],
-                    '--orb-size': (2 + k * 0.3) + 'px'
+                    '--od-dist': (38 + k * 11) + 'px',
+                    '--od-color': ['#fbbf24','#60a5fa','#a78bfa','#22d3ee','#34d399'][k-1],
+                    '--od-size': (1.5 + k * 0.3) + 'px'
                   }"
                 ></div>
-                <!-- 核心球体 -->
-                <div class="cv-orb-wrap">
-                  <div class="cv-orb-glow" :class="capsuleType"></div>
-                  <div class="cv-orb" :class="capsuleType">
-                    <div class="cv-orb-shine"></div>
+                <!-- ★ 核心胶囊 ★ -->
+                <div class="cv-capsule-wrap">
+                  <!-- 外层辉光 -->
+                  <div class="cv-cap-glow" :class="capsuleType"></div>
+                  <!-- 胶囊主体 -->
+                  <div class="cv-capsule" :class="capsuleType">
+                    <!-- 全息表面纹理 -->
+                    <div class="cv-cap-holo"></div>
+                    <!-- 顶部高光 -->
+                    <div class="cv-cap-highlight"></div>
+                    <!-- 中间能量带 -->
+                    <div class="cv-cap-band" :class="capsuleType">
+                      <div class="cv-band-glow"></div>
+                    </div>
+                    <!-- 内部流光 -->
+                    <div class="cv-cap-flow"></div>
+                    <!-- 封印符号 -->
+                    <div class="cv-cap-seal">★</div>
                   </div>
+                  <!-- 底部反射 -->
+                  <div class="cv-cap-reflection" :class="capsuleType"></div>
                 </div>
-                <!-- 封印纹 -->
-                <svg class="cv-seal-mark" viewBox="0 0 120 120" fill="none">
-                  <circle cx="60" cy="60" r="55" stroke="rgba(96,165,250,0.08)" stroke-width="0.5" stroke-dasharray="4 6" />
-                  <circle cx="60" cy="60" r="42" stroke="rgba(167,139,250,0.1)" stroke-width="0.5" stroke-dasharray="2 8" />
-                </svg>
+                <!-- 浮动符文 -->
+                <div class="cv-rune r-1">⬡</div>
+                <div class="cv-rune r-2">◇</div>
+                <div class="cv-rune r-3">✦</div>
               </div>
               <div class="meta-item">
                 <span class="meta-label">类型</span>
@@ -1130,160 +1146,238 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 }
 .capsule-visual {
   width: 100%; aspect-ratio: 1;
-  background: radial-gradient(ellipse at 30% 25%, #0c1f42 0%, #060e1f 50%, #020408 100%);
+  background: radial-gradient(ellipse at 50% 40%, #0a1630 0%, #050c1a 50%, #010306 100%);
   border-radius: 16px;
   display: flex; align-items: center; justify-content: center;
   position: relative; overflow: hidden; margin-bottom: 14px;
 }
 
-/* 星云背景 */
-.cv-nebula {
+/* ── 深空背景 ── */
+.cv-deep-space {
   position: absolute; inset: 0;
   background:
-    radial-gradient(ellipse 70% 50% at 25% 30%, rgba(96,165,250,0.06) 0%, transparent 70%),
-    radial-gradient(ellipse 50% 60% at 75% 65%, rgba(167,139,250,0.07) 0%, transparent 70%),
-    radial-gradient(ellipse 40% 40% at 50% 20%, rgba(34,211,238,0.04) 0%, transparent 60%);
-  animation: cvNebulaShift 12s ease-in-out infinite alternate;
+    radial-gradient(ellipse 60% 40% at 30% 25%, rgba(96,165,250,0.05) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 50% at 70% 70%, rgba(167,139,250,0.06) 0%, transparent 70%),
+    radial-gradient(ellipse 35% 35% at 50% 15%, rgba(34,211,238,0.04) 0%, transparent 60%);
+  animation: cvSpaceDrift 15s ease-in-out infinite alternate;
 }
-@keyframes cvNebulaShift {
-  0% { opacity: 0.6; transform: scale(1); }
-  100% { opacity: 1; transform: scale(1.05) rotate(3deg); }
-}
+@keyframes cvSpaceDrift { 0% { opacity: 0.5; } 100% { opacity: 1; transform: scale(1.03); } }
 
-/* 吸积盘 */
-.cv-accretion {
-  position: absolute;
-  width: 180px; height: 180px;
-  border-radius: 50%;
-  background: conic-gradient(
-    from 0deg,
-    rgba(96,165,250,0.0) 0deg,
-    rgba(96,165,250,0.15) 60deg,
-    rgba(167,139,250,0.2) 120deg,
-    rgba(96,165,250,0.05) 180deg,
-    rgba(34,211,238,0.15) 240deg,
-    rgba(96,165,250,0.1) 300deg,
-    rgba(96,165,250,0.0) 360deg
-  );
-  filter: blur(12px);
-  animation: cvDiskSpin 10s linear infinite;
-  opacity: 0.7;
+/* ── 能量场 ── */
+.cv-energy-field {
+  position: absolute; width: 170px; height: 170px;
+  border-radius: 50%; filter: blur(18px); opacity: 0.4;
+  background: conic-gradient(from 0deg,
+    rgba(96,165,250,0.0) 0deg, rgba(96,165,250,0.15) 90deg,
+    rgba(167,139,250,0.12) 180deg, rgba(34,211,238,0.1) 270deg,
+    rgba(96,165,250,0.0) 360deg);
+  animation: cvFieldSpin 12s linear infinite;
 }
-.cv-accretion.other {
-  background: conic-gradient(
-    from 0deg,
-    rgba(167,139,250,0.0) 0deg, rgba(167,139,250,0.2) 60deg,
-    rgba(244,114,182,0.15) 120deg, rgba(167,139,250,0.05) 180deg,
-    rgba(96,165,250,0.15) 240deg, rgba(167,139,250,0.1) 300deg,
-    rgba(167,139,250,0.0) 360deg
-  );
-}
-.cv-accretion.world {
-  background: conic-gradient(
-    from 0deg,
-    rgba(251,191,36,0.0) 0deg, rgba(251,191,36,0.2) 60deg,
-    rgba(251,113,94,0.15) 120deg, rgba(251,191,36,0.05) 180deg,
-    rgba(96,165,250,0.1) 240deg, rgba(251,191,36,0.15) 300deg,
-    rgba(251,191,36,0.0) 360deg
-  );
-}
-@keyframes cvDiskSpin { to { transform: rotate(360deg); } }
+.cv-energy-field.other { background: conic-gradient(from 0deg,
+  rgba(167,139,250,0.0) 0deg, rgba(167,139,250,0.18) 90deg,
+  rgba(244,114,182,0.12) 180deg, rgba(96,165,250,0.1) 270deg,
+  rgba(167,139,250,0.0) 360deg); }
+.cv-energy-field.world { background: conic-gradient(from 0deg,
+  rgba(251,191,36,0.0) 0deg, rgba(251,191,36,0.18) 90deg,
+  rgba(251,113,94,0.12) 180deg, rgba(167,139,250,0.08) 270deg,
+  rgba(251,191,36,0.0) 360deg); }
+@keyframes cvFieldSpin { to { transform: rotate(360deg); } }
 
-/* 脉冲环 */
-.cv-ring {
+/* ── 星尘 ── */
+.cv-stardust { position: absolute; inset: 0; pointer-events: none; }
+.cv-dust {
+  position: absolute; border-radius: 50%; background: white;
+  animation: cvDustTwinkle ease-in-out infinite alternate;
+}
+@keyframes cvDustTwinkle { from { opacity: 0.05; } to { opacity: 0.65; } }
+
+/* ── 六角防护罩 SVG ── */
+.cv-hex-shield {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  animation: cvHexSpin 40s linear infinite;
+  opacity: 0.5;
+}
+@keyframes cvHexSpin { to { transform: rotate(360deg); } }
+
+/* ── 数据流环 ── */
+.cv-data-ring {
   position: absolute; border-radius: 50%;
   border: 1px solid rgba(96,165,250,0.15);
-  animation: cvRingPulse 4s ease-in-out infinite;
+  animation: cvDataPulse 4s ease-in-out infinite;
 }
-.cv-ring.r1 { width: 70px; height: 70px; border-color: rgba(96,165,250,0.25); animation-duration: 3s; }
-.cv-ring.r2 { width: 100px; height: 100px; animation-delay: 0.5s; animation-duration: 4s; }
-.cv-ring.r3 { width: 135px; height: 135px; animation-delay: 1s; animation-duration: 5s; opacity: 0.4; border-color: rgba(167,139,250,0.12); }
-.cv-ring.r4 { width: 165px; height: 165px; animation-delay: 1.5s; animation-duration: 6s; opacity: 0.2; border-color: rgba(34,211,238,0.08); }
-@keyframes cvRingPulse {
-  0%,100% { opacity: 0.2; transform: scale(1); }
-  50% { opacity: 0.7; transform: scale(1.06); }
+.cv-data-ring.r1 {
+  width: 130px; height: 130px;
+  border: 1px dashed rgba(96,165,250,0.2);
+  animation-duration: 3.5s;
 }
-
-/* 星尘粒子 */
-.cv-particles { position: absolute; inset: 0; pointer-events: none; }
-.cv-particle {
-  position: absolute; border-radius: 50%;
-  background: white;
-  animation: cvParticleDrift linear infinite;
+.cv-data-ring.r1.other { border-color: rgba(167,139,250,0.2); }
+.cv-data-ring.r1.world { border-color: rgba(251,191,36,0.2); }
+.cv-data-ring.r2 {
+  width: 165px; height: 165px;
+  border: 1px dotted rgba(167,139,250,0.1);
+  animation-delay: 1s; animation-duration: 5s;
 }
-@keyframes cvParticleDrift {
-  0% { transform: translate(0, 0); opacity: 0.5; }
-  50% { opacity: 0.8; }
-  100% { transform: translate(var(--drift-x, 10px), var(--drift-y, -20px)); opacity: 0; }
+@keyframes cvDataPulse {
+  0%,100% { opacity: 0.2; transform: scale(1) rotate(0deg); }
+  50% { opacity: 0.6; transform: scale(1.04) rotate(8deg); }
 }
 
-/* 轨道粒子 */
-.cv-orbit {
+/* ── 轨道光点 ── */
+.cv-orbit-dot {
   position: absolute;
-  width: var(--orb-size, 2px); height: var(--orb-size, 2px);
+  width: var(--od-size, 2px); height: var(--od-size, 2px);
   border-radius: 50%;
-  background: var(--orb-color, white);
-  box-shadow: 0 0 4px var(--orb-color, white);
+  background: var(--od-color, white);
+  box-shadow: 0 0 5px var(--od-color, white);
   left: 50%; top: 50%;
-  margin-left: calc(var(--orb-size, 2px) / -2);
-  margin-top: calc(0px - var(--orb-dist, 50px));
-  transform-origin: calc(var(--orb-size, 2px) / 2) var(--orb-dist, 50px);
-  animation: cvOrbitSpin 6s linear infinite;
+  margin-left: calc(var(--od-size, 2px) / -2);
+  margin-top: calc(0px - var(--od-dist, 50px));
+  transform-origin: calc(var(--od-size, 2px) / 2) var(--od-dist, 50px);
+  animation: cvOrbitDot linear infinite;
 }
-@keyframes cvOrbitSpin { to { transform: rotate(360deg); } }
+@keyframes cvOrbitDot { to { transform: rotate(360deg); } }
 
-/* 核心球体 */
-.cv-orb-wrap {
-  position: relative; z-index: 3;
-  animation: cvOrbFloat 4s ease-in-out infinite;
+/* ═══ 核心胶囊 ═══ */
+.cv-capsule-wrap {
+  position: relative; z-index: 5;
+  animation: cvCapFloat 5s ease-in-out infinite;
 }
-@keyframes cvOrbFloat { 0%,100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-5px) scale(1.03); } }
+@keyframes cvCapFloat {
+  0%,100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
 
-.cv-orb-glow {
-  position: absolute;
-  inset: -20px;
+/* 辉光 */
+.cv-cap-glow {
+  position: absolute; inset: -30px -15px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(96,165,250,0.25) 0%, transparent 70%);
-  animation: cvGlowPulse 3s ease-in-out infinite;
+  background: radial-gradient(ellipse, rgba(96,165,250,0.3) 0%, transparent 70%);
+  animation: cvCapGlowPulse 3s ease-in-out infinite;
+  filter: blur(5px);
 }
-.cv-orb-glow.other { background: radial-gradient(circle, rgba(167,139,250,0.25) 0%, transparent 70%); }
-.cv-orb-glow.world { background: radial-gradient(circle, rgba(251,191,36,0.25) 0%, transparent 70%); }
-@keyframes cvGlowPulse { 0%,100% { opacity: 0.5; transform: scale(1); } 50% { opacity: 1; transform: scale(1.15); } }
+.cv-cap-glow.other { background: radial-gradient(ellipse, rgba(167,139,250,0.3) 0%, transparent 70%); }
+.cv-cap-glow.world { background: radial-gradient(ellipse, rgba(251,191,36,0.3) 0%, transparent 70%); }
+@keyframes cvCapGlowPulse { 0%,100% { opacity: 0.5; transform: scale(1); } 50% { opacity: 1; transform: scale(1.1); } }
 
-.cv-orb {
-  width: 60px; height: 60px; border-radius: 50%;
-  background: radial-gradient(circle at 32% 28%, #b0d4ff 0%, #60a5fa 25%, #1d4ed8 60%, #0c2461 100%);
+/* 胶囊主体 — 圆角药丸形 */
+.cv-capsule {
+  width: 52px; height: 90px;
+  border-radius: 26px;
+  background: linear-gradient(180deg,
+    #b0d4ff 0%, #60a5fa 15%, #2563eb 35%,
+    #1e40af 50%, #1d4ed8 65%, #60a5fa 85%, #93c5fd 100%);
   box-shadow:
-    0 0 30px rgba(96,165,250,0.5),
-    0 0 60px rgba(96,165,250,0.2),
-    inset 0 0 15px rgba(255,255,255,0.1);
+    0 0 25px rgba(96,165,250,0.5),
+    0 0 50px rgba(96,165,250,0.2),
+    0 0 80px rgba(96,165,250,0.1),
+    inset 0 0 20px rgba(255,255,255,0.08);
   position: relative; overflow: hidden;
+  border: 1px solid rgba(148,196,255,0.25);
 }
-.cv-orb.other {
-  background: radial-gradient(circle at 32% 28%, #e9ddff 0%, #a78bfa 25%, #7c3aed 60%, #3b0764 100%);
-  box-shadow: 0 0 30px rgba(167,139,250,0.5), 0 0 60px rgba(167,139,250,0.2), inset 0 0 15px rgba(255,255,255,0.1);
+.cv-capsule.other {
+  background: linear-gradient(180deg,
+    #e9ddff 0%, #a78bfa 15%, #7c3aed 35%,
+    #5b21b6 50%, #7c3aed 65%, #a78bfa 85%, #ddd6fe 100%);
+  box-shadow: 0 0 25px rgba(167,139,250,0.5), 0 0 50px rgba(167,139,250,0.2), 0 0 80px rgba(167,139,250,0.1), inset 0 0 20px rgba(255,255,255,0.08);
+  border-color: rgba(167,139,250,0.25);
 }
-.cv-orb.world {
-  background: radial-gradient(circle at 32% 28%, #fef3c7 0%, #fbbf24 25%, #d97706 60%, #78350f 100%);
-  box-shadow: 0 0 30px rgba(251,191,36,0.5), 0 0 60px rgba(251,191,36,0.2), inset 0 0 15px rgba(255,255,255,0.15);
-}
-.cv-orb-shine {
-  position: absolute;
-  top: 8px; left: 12px;
-  width: 18px; height: 12px;
-  border-radius: 50%;
-  background: radial-gradient(ellipse, rgba(255,255,255,0.5) 0%, transparent 70%);
-  transform: rotate(-20deg);
+.cv-capsule.world {
+  background: linear-gradient(180deg,
+    #fef3c7 0%, #fbbf24 15%, #d97706 35%,
+    #b45309 50%, #d97706 65%, #fbbf24 85%, #fef3c7 100%);
+  box-shadow: 0 0 25px rgba(251,191,36,0.5), 0 0 50px rgba(251,191,36,0.2), 0 0 80px rgba(251,191,36,0.1), inset 0 0 20px rgba(255,255,255,0.1);
+  border-color: rgba(251,191,36,0.25);
 }
 
-/* 封印纹 SVG */
-.cv-seal-mark {
+/* 全息纹理 */
+.cv-cap-holo {
   position: absolute; inset: 0;
-  width: 100%; height: 100%;
-  animation: cvSealSpin 30s linear infinite;
-  opacity: 0.6;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0px,
+    rgba(255,255,255,0.02) 1px,
+    transparent 2px,
+    transparent 5px
+  );
+  animation: cvHoloShift 4s linear infinite;
 }
-@keyframes cvSealSpin { to { transform: rotate(360deg); } }
+@keyframes cvHoloShift { to { background-position: 0 20px; } }
+
+/* 顶部高光 */
+.cv-cap-highlight {
+  position: absolute; top: 6px; left: 10px; right: 14px;
+  height: 22px; border-radius: 50%;
+  background: radial-gradient(ellipse at 45% 40%, rgba(255,255,255,0.45) 0%, transparent 70%);
+}
+
+/* 中间能量带 — 胶囊分界线 */
+.cv-cap-band {
+  position: absolute; left: -2px; right: -2px;
+  top: 50%; transform: translateY(-50%);
+  height: 6px;
+  background: linear-gradient(90deg,
+    transparent, rgba(255,255,255,0.6), rgba(96,165,250,0.8), rgba(255,255,255,0.6), transparent);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.cv-cap-band.other {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), rgba(167,139,250,0.9), rgba(255,255,255,0.6), transparent);
+}
+.cv-cap-band.world {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), rgba(251,191,36,0.9), rgba(255,255,255,0.6), transparent);
+}
+.cv-band-glow {
+  position: absolute; inset: -4px -20px;
+  background: linear-gradient(90deg, transparent, rgba(96,165,250,0.3), transparent);
+  animation: cvBandPulse 2s ease-in-out infinite;
+}
+@keyframes cvBandPulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
+
+/* 内部流光 */
+.cv-cap-flow {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, transparent 0%, rgba(255,255,255,0.04) 50%, transparent 100%);
+  animation: cvFlowMove 3s ease-in-out infinite;
+}
+@keyframes cvFlowMove {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+
+/* 封印符号 */
+.cv-cap-seal {
+  position: absolute; bottom: 16px;
+  left: 50%; transform: translateX(-50%);
+  font-size: 10px; color: rgba(255,255,255,0.35);
+  text-shadow: 0 0 8px rgba(96,165,250,0.3);
+  letter-spacing: 1px;
+}
+
+/* 底部反射 */
+.cv-cap-reflection {
+  width: 36px; height: 18px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(96,165,250,0.2) 0%, transparent 70%);
+  margin: 8px auto 0;
+  filter: blur(4px);
+}
+.cv-cap-reflection.other { background: radial-gradient(ellipse, rgba(167,139,250,0.2) 0%, transparent 70%); }
+.cv-cap-reflection.world { background: radial-gradient(ellipse, rgba(251,191,36,0.2) 0%, transparent 70%); }
+
+/* ── 浮动符文 ── */
+.cv-rune {
+  position: absolute;
+  font-size: 10px;
+  color: rgba(96,165,250,0.2);
+  animation: cvRuneFloat 6s ease-in-out infinite;
+}
+.cv-rune.r-1 { top: 18%; left: 14%; animation-delay: 0s; font-size: 14px; color: rgba(167,139,250,0.15); }
+.cv-rune.r-2 { top: 28%; right: 16%; animation-delay: 2s; font-size: 11px; color: rgba(34,211,238,0.15); }
+.cv-rune.r-3 { bottom: 20%; left: 20%; animation-delay: 4s; font-size: 9px; color: rgba(251,191,36,0.2); }
+@keyframes cvRuneFloat {
+  0%,100% { transform: translateY(0) rotate(0deg); opacity: 0.3; }
+  50% { transform: translateY(-6px) rotate(10deg); opacity: 0.7; }
+}
 
 .meta-item {
   display: flex; justify-content: space-between; align-items: center;
