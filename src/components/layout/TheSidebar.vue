@@ -55,39 +55,38 @@ function isActive(name: string) {
 </script>
 
 <template>
-  <!-- 折叠时的浮动展开按钮 -->
-  <Transition name="fab">
-    <button
-      v-if="collapsed"
-      class="sidebar-fab"
-      @click="app.toggleSidebar()"
-      title="展开侧边栏"
-    >
-      <Icon name="hexagon" :size="16" color="var(--accent-cyan)" />
-    </button>
-  </Transition>
-
   <aside class="sidebar" :class="{ collapsed }">
     <!-- Brand + Toggle -->
     <div class="brand-bar">
-      <div class="brand">
+      <div class="brand" @click="collapsed && app.toggleSidebar()">
         <div class="brand-logo">
           <Icon name="hexagon" :size="18" color="white" />
         </div>
-        <div class="brand-text">
-          <div class="brand-name">ChainLog</div>
-          <div class="brand-sub">WEB3 · BLOG · SOUL</div>
-        </div>
+        <Transition name="fade-text">
+          <div v-if="!collapsed" class="brand-text">
+            <div class="brand-name">ChainLog</div>
+            <div class="brand-sub">WEB3 · BLOG · SOUL</div>
+          </div>
+        </Transition>
       </div>
-      <button class="collapse-btn" @click="app.toggleSidebar()" title="折叠侧边栏">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M15 18l-6-6 6-6" />
+      <button class="collapse-btn" @click="app.toggleSidebar()" :title="collapsed ? '展开侧边栏' : '折叠侧边栏'">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <template v-if="!collapsed">
+            <rect x="3" y="3" width="18" height="18" rx="3" />
+            <line x1="9" y1="3" x2="9" y2="21" />
+            <path d="M15 10l-2 2 2 2" />
+          </template>
+          <template v-else>
+            <rect x="3" y="3" width="18" height="18" rx="3" />
+            <line x1="9" y1="3" x2="9" y2="21" />
+            <path d="M14 10l2 2-2 2" />
+          </template>
         </svg>
       </button>
     </div>
 
     <!-- 个人资料卡 -->
-    <div class="profile-card">
+    <div class="profile-card" @click="collapsed && app.toggleSidebar()">
       <div class="profile-row">
         <div class="profile-avatar">
           <img v-if="profile.avatarUrl" :src="profile.avatarUrl" alt="" class="avatar-img" />
@@ -96,22 +95,24 @@ function isActive(name: string) {
           </svg>
           <span class="avatar-dot"></span>
         </div>
-        <div class="profile-info">
+        <div v-if="!collapsed" class="profile-info">
           <div class="profile-name">{{ profile.nickname }}</div>
           <div class="profile-addr">0x7a3F...8cB2</div>
         </div>
       </div>
-      <div v-if="profile.quote" class="profile-quote">"{{ profile.quote }}"</div>
-      <div v-if="profile.tags.length" class="profile-tags">
-        <span v-for="t in profile.tags" :key="t.id" class="profile-tag">{{ t.label }}</span>
-      </div>
-      <div class="profile-stats">
-        <div class="pstat"><span class="pstat-n">42</span> 文章</div>
-        <div class="pstat-sep"></div>
-        <div class="pstat"><span class="pstat-n">18</span> NFT</div>
-        <div class="pstat-sep"></div>
-        <div class="pstat"><span class="pstat-n">1.2K</span> 读者</div>
-      </div>
+      <template v-if="!collapsed">
+        <div v-if="profile.quote" class="profile-quote">"{{ profile.quote }}"</div>
+        <div v-if="profile.tags.length" class="profile-tags">
+          <span v-for="t in profile.tags" :key="t.id" class="profile-tag">{{ t.label }}</span>
+        </div>
+        <div class="profile-stats">
+          <div class="pstat"><span class="pstat-n">42</span> 文章</div>
+          <div class="pstat-sep"></div>
+          <div class="pstat"><span class="pstat-n">18</span> NFT</div>
+          <div class="pstat-sep"></div>
+          <div class="pstat"><span class="pstat-n">1.2K</span> 读者</div>
+        </div>
+      </template>
     </div>
 
     <!-- Navigation -->
@@ -121,62 +122,35 @@ function isActive(name: string) {
         :key="section.label"
         class="nav-section"
       >
-        <div class="nav-section-label">{{ section.label }}</div>
+        <div v-if="!collapsed" class="nav-section-label">{{ section.label }}</div>
+        <div v-else class="nav-section-divider"></div>
         <div
           v-for="item in section.items"
           :key="item.name"
           class="nav-item"
           :class="{ active: isActive(item.name) }"
+          :title="collapsed ? item.label : ''"
           @click="navigateTo(item.name)"
         >
           <Icon :name="item.icon" :size="16" class="nav-icon" />
-          <span class="nav-label">{{ item.label }}</span>
-          <span v-if="item.badge" class="nav-badge">{{ item.badge }}</span>
+          <span v-if="!collapsed" class="nav-label">{{ item.label }}</span>
+          <span v-if="item.badge && !collapsed" class="nav-badge">{{ item.badge }}</span>
+          <span v-if="item.badge && collapsed" class="nav-badge-dot"></span>
         </div>
       </div>
     </nav>
 
     <!-- Footer -->
     <div class="sidebar-footer">
-      <button class="publish-btn" @click="router.push({ name: 'home' })">
+      <button class="publish-btn" @click="router.push({ name: 'home' })" :title="collapsed ? '发布新文章' : ''">
         <Icon name="edit" :size="14" />
-        发布新文章
+        <span v-if="!collapsed">发布新文章</span>
       </button>
     </div>
   </aside>
 </template>
 
 <style scoped>
-/* ── 浮动展开按钮（侧边栏隐藏时显示） ── */
-.sidebar-fab {
-  position: fixed;
-  top: 20px;
-  left: 16px;
-  z-index: calc(var(--z-sidebar) + 1);
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-}
-.sidebar-fab:hover {
-  border-color: var(--accent-blue);
-  box-shadow: 0 4px 20px rgba(99, 179, 237, 0.3);
-  transform: scale(1.05);
-}
-
-/* fab transition */
-.fab-enter-active { transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
-.fab-leave-active { transition: all 0.15s ease; }
-.fab-enter-from, .fab-leave-to { opacity: 0; transform: scale(0.8); }
-
-/* ── Sidebar ── */
 .sidebar {
   width: var(--sidebar-width);
   flex-shrink: 0;
@@ -193,11 +167,11 @@ function isActive(name: string) {
   z-index: var(--z-sidebar);
   overflow-y: auto;
   overflow-x: hidden;
-  transform: translateX(0);
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .sidebar.collapsed {
-  transform: translateX(-100%);
+  width: var(--sidebar-collapsed-width);
+  padding: 20px 10px;
 }
 
 /* ── Brand Bar ── */
@@ -213,6 +187,10 @@ function isActive(name: string) {
   align-items: center;
   gap: 10px;
   min-width: 0;
+  cursor: default;
+}
+.collapsed .brand {
+  cursor: pointer;
 }
 .brand-logo {
   width: 36px;
@@ -246,9 +224,9 @@ function isActive(name: string) {
   margin-top: 1px;
 }
 .collapse-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -258,11 +236,25 @@ function isActive(name: string) {
   flex-shrink: 0;
   background: transparent;
   border: none;
+  opacity: 0.5;
 }
 .collapse-btn:hover {
   background: rgba(99, 179, 237, 0.1);
   color: var(--accent-blue);
+  opacity: 1;
 }
+.collapsed .collapse-btn {
+  margin: 0 auto;
+  opacity: 0.6;
+}
+.collapsed .collapse-btn:hover {
+  opacity: 1;
+}
+
+/* ── Fade transition for text ── */
+.fade-text-enter-active { transition: opacity 0.2s 0.1s; }
+.fade-text-leave-active { transition: opacity 0.15s; }
+.fade-text-enter-from, .fade-text-leave-to { opacity: 0; }
 
 /* ═══ 个人资料卡 ═══ */
 .profile-card {
@@ -273,11 +265,20 @@ function isActive(name: string) {
   margin-bottom: 16px;
   transition: padding 0.3s;
 }
+.collapsed .profile-card {
+  padding: 10px 6px;
+  cursor: pointer;
+}
+
 .profile-row {
   display: flex;
   align-items: center;
   gap: 10px;
   margin-bottom: 8px;
+}
+.collapsed .profile-row {
+  justify-content: center;
+  margin-bottom: 0;
 }
 
 .profile-avatar {
@@ -292,6 +293,10 @@ function isActive(name: string) {
   position: relative;
   box-shadow: 0 0 12px rgba(99, 179, 237, 0.2);
   overflow: hidden;
+}
+.collapsed .profile-avatar {
+  width: 34px;
+  height: 34px;
 }
 .avatar-img {
   width: 100%;
@@ -404,6 +409,11 @@ function isActive(name: string) {
   white-space: nowrap;
   overflow: hidden;
 }
+.nav-section-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 6px 8px;
+}
 .nav-item {
   display: flex;
   align-items: center;
@@ -418,6 +428,10 @@ function isActive(name: string) {
   margin-bottom: 1px;
   white-space: nowrap;
   overflow: hidden;
+}
+.collapsed .nav-item {
+  justify-content: center;
+  padding: 10px;
 }
 .nav-item:hover {
   background: rgba(99, 179, 237, 0.07);
@@ -456,6 +470,16 @@ function isActive(name: string) {
   border-radius: var(--radius-full);
   flex-shrink: 0;
 }
+.nav-badge-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-purple);
+}
+
 /* ── Footer ── */
 .sidebar-footer {
   border-top: 1px solid var(--border);

@@ -42,7 +42,7 @@
 
   /* ── Sidebar ── */
   --sidebar-width: 260px;
-  --sidebar-collapsed-width: 0px;
+  --sidebar-collapsed-width: 68px;
 
   /* ── Transitions ── */
   --transition-fast: 0.15s ease;

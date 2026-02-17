@@ -37,7 +37,7 @@ const app = useAppStore()
   transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .main-area.collapsed {
-  margin-left: 0;
+  margin-left: var(--sidebar-collapsed-width);
 }
 
 .main-inner {
