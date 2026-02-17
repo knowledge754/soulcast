@@ -1,0 +1,63 @@
+/* ═══════════════════════════════════════════
+   ChainLog Design System — CSS Variables
+   Deep Space Dark Theme × Emotional Warmth
+   ═══════════════════════════════════════════ */
+
+:root {
+  /* ── Background Palette ── */
+  --bg-void: #040810;
+  --bg-deep: #070d1a;
+  --bg-card: #0c1525;
+  --bg-glass: rgba(12, 21, 37, 0.7);
+  --bg-glass-heavy: rgba(4, 8, 16, 0.85);
+
+  /* ── Border ── */
+  --border: rgba(99, 179, 237, 0.12);
+  --border-hover: rgba(99, 179, 237, 0.3);
+  --border-active: rgba(99, 179, 237, 0.5);
+
+  /* ── Accent Colors ── */
+  --accent-blue: #63b3ed;
+  --accent-cyan: #76e4f7;
+  --accent-purple: #b794f4;
+  --accent-warm: #fbb040;
+  --accent-pink: #f687b3;
+  --accent-green: #68d391;
+
+  /* ── Text Hierarchy ── */
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #475569;
+
+  /* ── Glow Effects ── */
+  --glow-blue: 0 0 30px rgba(99, 179, 237, 0.2);
+  --glow-purple: 0 0 30px rgba(183, 148, 244, 0.2);
+  --glow-green: 0 0 12px rgba(104, 211, 145, 0.3);
+
+  /* ── Radius ── */
+  --radius: 16px;
+  --radius-sm: 8px;
+  --radius-lg: 24px;
+  --radius-full: 99px;
+
+  /* ── Sidebar ── */
+  --sidebar-width: 260px;
+  --sidebar-collapsed-width: 68px;
+
+  /* ── Transitions ── */
+  --transition-fast: 0.15s ease;
+  --transition-base: 0.25s ease;
+  --transition-slow: 0.35s ease;
+
+  /* ── Font families ── */
+  --font-display: 'Noto Serif SC', serif;
+  --font-body: 'Sora', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* ── Z-index layers ── */
+  --z-background: 0;
+  --z-content: 1;
+  --z-sticky: 50;
+  --z-sidebar: 100;
+  --z-overlay: 9999;
+}
