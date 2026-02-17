@@ -194,31 +194,30 @@ function closeDropdown() {
 .topbar-left {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-shrink: 0;
 }
 .back-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-secondary);
+  color: var(--text-muted);
   cursor: pointer;
   transition: all 0.2s;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
+  background: transparent;
+  border: none;
 }
 .back-btn:hover {
-  border-color: var(--border-hover);
   color: var(--accent-blue);
-  background: rgba(99, 179, 237, 0.06);
 }
 .topbar-title {
   font-size: 20px;
   font-weight: 600;
   letter-spacing: -0.5px;
+  line-height: 28px;
 }
 
 .topbar-search {
