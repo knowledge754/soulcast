@@ -773,8 +773,9 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 </template>
 
 <style scoped>
-/* ═══ Variables ═══ */
+/* ═══ Variables — match prototype exactly ═══ */
 .ss-page {
+  /* Prototype :root colors */
   --void: #020408;
   --deep: #060c16;
   --surface: #0a1628;
@@ -791,8 +792,25 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
   --sealed-glow: 0 0 40px rgba(96,165,250,0.15);
   --ss-r: 18px;
   --ss-r-sm: 10px;
+  /* Override global text colors to match prototype */
+  --text-primary: #e8f4ff;
+  --text-secondary: #94a3b8;
+  --text-muted: #475569;
+  /* Override global bg */
+  --bg-void: #020408;
+  --bg-card: #0d1e35;
+  color: #e8f4ff;
   position: relative;
   animation: ssIn 0.4s ease;
+}
+/* Page-level background to override global body bg */
+.ss-page::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: #020408;
+  z-index: -1;
+  pointer-events: none;
 }
 @keyframes ssIn { from { opacity: 0; transform: translateY(10px); } }
 
@@ -1212,7 +1230,7 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 }
 .capsule-visual {
   width: 100%; aspect-ratio: 1;
-  background: radial-gradient(ellipse at 50% 40%, #0a1630 0%, #050c1a 50%, #010306 100%);
+  background: radial-gradient(circle at 30% 25%, #1e3a8a, #0a1628);
   border-radius: 16px;
   display: flex; align-items: center; justify-content: center;
   position: relative; overflow: hidden; margin-bottom: 14px;
