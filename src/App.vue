@@ -43,7 +43,7 @@ const app = useAppStore()
 .main-inner {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 0 48px 60px 56px;
+  padding: 0 48px 60px 72px;
   transition: max-width 0.3s ease, padding 0.3s ease;
 }
 .main-inner.layout-full {
