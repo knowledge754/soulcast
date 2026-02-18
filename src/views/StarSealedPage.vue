@@ -1071,12 +1071,12 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
   font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.25s;
   box-shadow: 0 4px 16px rgba(99,179,237,0.25);
 }
-.btn-next:hover { background: #3b82f6; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(99,179,237,0.35); }
+.btn-next:hover { background: var(--accent-blue); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(99,179,237,0.35); }
 
 /* Seal btn */
 .seal-btn {
   width: 100%; padding: 16px;
-  background: linear-gradient(135deg, #1d4ed8, #7c3aed);
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
   border: none; border-radius: var(--ss-r); color: white;
   font-size: 15px; font-weight: 600; cursor: pointer;
   display: flex; align-items: center; justify-content: center; gap: 10px;
@@ -1542,7 +1542,7 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 @keyframes orbit { to { transform: rotate(360deg); } }
 .bh-void {
   position: absolute; inset: 70px; border-radius: 50%;
-  background: radial-gradient(circle, #000 60%, #050810 100%);
+  background: radial-gradient(circle, #000 60%, var(--bg-void) 100%);
   box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 30px rgba(99,179,237,0.05);
   display: flex; align-items: center; justify-content: center;
   transition: all 0.3s;
@@ -1792,7 +1792,7 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 .so-phase-text { min-height: 80px; }
 .so-title {
   font-size: 24px; font-weight: 600;
-  color: var(--text-primary, #e8f4ff);
+  color: var(--text-primary);
   margin-bottom: 8px;
   letter-spacing: 1px;
 }

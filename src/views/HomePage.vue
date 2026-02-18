@@ -274,7 +274,7 @@ const moments = [
   line-height: 1.3;
   letter-spacing: -1px;
   margin-bottom: 12px;
-  background: linear-gradient(135deg, #e2e8f0 0%, var(--accent-cyan) 100%);
+  background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent-cyan) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
