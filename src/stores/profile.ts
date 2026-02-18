@@ -16,6 +16,7 @@ export const useProfileStore = defineStore('profile', () => {
     { id: '2', label: '创作者' },
     { id: '3', label: 'DeFi' },
   ])
+  const heroVideoUrl = ref('')
   const socialLinks = ref({
     twitter: '',
     github: '',
@@ -38,6 +39,7 @@ export const useProfileStore = defineStore('profile', () => {
         if (data.bio) bio.value = data.bio
         if (data.quote) quote.value = data.quote
         if (data.tags) tags.value = data.tags
+        if (data.heroVideoUrl) heroVideoUrl.value = data.heroVideoUrl
         if (data.socialLinks) socialLinks.value = { ...socialLinks.value, ...data.socialLinks }
       }
     } catch { /* ignore */ }
@@ -49,13 +51,14 @@ export const useProfileStore = defineStore('profile', () => {
       avatarUrl: avatarUrl.value,
       bio: bio.value,
       quote: quote.value,
+      heroVideoUrl: heroVideoUrl.value,
       tags: tags.value,
       socialLinks: socialLinks.value,
     }))
   }
 
   // 自动持久化
-  watch([nickname, avatarUrl, bio, quote, tags, socialLinks], saveToStorage, { deep: true })
+  watch([nickname, avatarUrl, bio, quote, heroVideoUrl, tags, socialLinks], saveToStorage, { deep: true })
 
   function addTag(label: string) {
     if (tags.value.length >= 6) return
@@ -79,6 +82,7 @@ export const useProfileStore = defineStore('profile', () => {
     avatarUrl,
     bio,
     quote,
+    heroVideoUrl,
     tags,
     socialLinks,
     addTag,

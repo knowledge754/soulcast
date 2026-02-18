@@ -123,6 +123,17 @@ function handleSave() {
           <div class="setting-hint">{{ profile.bio.length }}/200</div>
         </div>
 
+        <!-- 首页视频 -->
+        <div class="setting-section">
+          <div class="setting-label">{{ i18n.t('settings.heroVideo') }}</div>
+          <input
+            v-model="profile.heroVideoUrl"
+            class="setting-input"
+            placeholder="https://example.com/video.mp4"
+          />
+          <div class="setting-hint">{{ i18n.t('settings.heroVideoHint') }}</div>
+        </div>
+
         <!-- 标签 -->
         <div class="setting-section">
           <div class="setting-label">{{ i18n.t('settings.tags') }}</div>

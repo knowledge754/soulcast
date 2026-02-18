@@ -137,23 +137,33 @@ const moments = [
             <a
               v-for="s in activeSocialLinks"
               :key="s.key"
-              class="hero-social-icon"
+              class="hero-social-btn"
               :title="s.key"
               href="javascript:;"
             >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path :d="s.svg" />
               </svg>
             </a>
           </div>
         </div>
       </div>
-      <div class="hero-nft">
-        <div class="nft-icon">
-          <Icon name="hexagon" :size="52" color="var(--accent-cyan)" :stroke-width="1" />
+      <div class="hero-media">
+        <video
+          v-if="profile.heroVideoUrl"
+          :src="profile.heroVideoUrl"
+          autoplay
+          muted
+          loop
+          playsinline
+          class="hero-video"
+        />
+        <div v-else class="hero-video-placeholder">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" style="opacity:.4">
+            <polygon points="5 3 19 12 5 21 5 3"/>
+          </svg>
+          <span class="placeholder-text">{{ i18n.t('home.videoHint') }}</span>
         </div>
-        <div class="nft-label">SOUL · NFT</div>
-        <div class="nft-id">#0042</div>
       </div>
     </div>
 
@@ -345,20 +355,20 @@ const moments = [
 .hero-profile-row {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 10px;
   flex-wrap: wrap;
-  margin-top: 18px;
-  padding-top: 16px;
+  margin-top: 16px;
+  padding-top: 14px;
   border-top: 1px solid var(--border);
 }
 .hero-tags {
   display: flex;
-  gap: 6px;
+  gap: 5px;
   flex-wrap: wrap;
 }
 .hero-tag {
-  font-size: 11px;
-  padding: 3px 10px;
+  font-size: 10px;
+  padding: 2px 9px;
   border-radius: var(--radius-full);
   background: rgba(99, 179, 237, 0.1);
   border: 1px solid rgba(99, 179, 237, 0.2);
@@ -368,57 +378,60 @@ const moments = [
 }
 .hero-socials {
   display: flex;
-  gap: 6px;
-  margin-left: auto;
+  gap: 2px;
 }
-.hero-social-icon {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
+.hero-social-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--text-muted);
-  background: rgba(255,255,255,0.04);
-  border: 1px solid var(--border);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.25s;
   text-decoration: none;
+  position: relative;
 }
-.hero-social-icon:hover {
+.hero-social-btn:hover {
   color: var(--accent-cyan);
-  border-color: var(--border-hover);
-  background: rgba(99,179,237,0.1);
-  transform: translateY(-1px);
+  background: rgba(99,179,237,0.12);
+  transform: scale(1.2);
 }
 
-.hero-nft {
+/* ── Hero Video ── */
+.hero-media {
   flex-shrink: 0;
-  width: 150px;
-  height: 150px;
-  background: linear-gradient(135deg, rgba(99, 179, 237, 0.12), rgba(183, 148, 244, 0.12));
-  border: 1px solid rgba(99, 179, 237, 0.2);
-  border-radius: 18px;
+  width: 240px;
+  height: 180px;
+  border-radius: 14px;
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+  border: 1px solid rgba(99, 179, 237, 0.15);
+  background: rgba(4,8,16,0.6);
+}
+.hero-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.hero-video-placeholder {
+  width: 100%;
+  height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  position: relative;
-  z-index: 1;
+  gap: 8px;
+  background: linear-gradient(135deg, rgba(99,179,237,0.06), rgba(183,148,244,0.06));
 }
-.nft-icon {
-  line-height: 1;
-}
-.nft-label {
-  font-family: var(--font-mono);
+.placeholder-text {
   font-size: 10px;
-  color: var(--accent-blue);
-  letter-spacing: 1px;
-}
-.nft-id {
-  font-size: 11px;
   color: var(--text-muted);
+  opacity: 0.5;
+  font-family: var(--font-mono);
 }
 
 /* ── NFT Mint Strip ── */
@@ -691,7 +704,7 @@ const moments = [
 }
 
 @media (max-width: 960px) {
-  .hero-nft {
+  .hero-media {
     display: none;
   }
   .hero {
