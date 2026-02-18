@@ -7,14 +7,17 @@ import { useWallet } from '../../composables/useWallet'
 import { useAppStore } from '../../stores/app'
 import { useI18n, languages } from '../../stores/i18n'
 import type { Locale } from '../../stores/i18n'
+import { useThemeStore, themes } from '../../stores/theme'
 
 const route = useRoute()
 const router = useRouter()
 const wallet = useWallet()
 const app = useAppStore()
 const i18n = useI18n()
+const themeStore = useThemeStore()
 const showDropdown = ref(false)
 const showLangMenu = ref(false)
+const showThemeMenu = ref(false)
 
 const pageTitle = computed(() => {
   const name = route.name as string
@@ -34,6 +37,15 @@ function goBack() {
 function selectLang(code: Locale) {
   i18n.setLocale(code)
   showLangMenu.value = false
+}
+
+function selectTheme(id: string) {
+  themeStore.setTheme(id)
+  showThemeMenu.value = false
+}
+
+function getThemeName(t: typeof themes[0]) {
+  return t.name[i18n.locale] || t.name['en-US']
 }
 
 function handleConnectClick() {
@@ -117,6 +129,43 @@ function closeDropdown() {
                 <span class="lang-item-short">{{ lang.short }}</span>
                 <span>{{ lang.label }}</span>
                 <svg v-if="i18n.locale === lang.code" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </Transition>
+      </div>
+
+      <!-- 主题风格切换 -->
+      <div class="theme-wrapper">
+        <button
+          class="topbar-btn theme-btn"
+          :title="i18n.t('topbar.theme')"
+          @click="showThemeMenu = !showThemeMenu"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+          </svg>
+        </button>
+        <Transition name="dropdown">
+          <div v-if="showThemeMenu" class="theme-dropdown">
+            <div class="theme-backdrop" @click="showThemeMenu = false"></div>
+            <div class="theme-panel">
+              <div class="theme-panel-title">{{ i18n.t('topbar.theme') }}</div>
+              <button
+                v-for="t in themes"
+                :key="t.id"
+                class="theme-item"
+                :class="{ active: themeStore.currentId === t.id }"
+                @click="selectTheme(t.id)"
+              >
+                <span class="theme-dots">
+                  <span v-for="(c, ci) in t.colors" :key="ci" class="theme-dot" :style="{ background: c }"></span>
+                </span>
+                <span class="theme-label">{{ getThemeName(t) }}</span>
+                <svg v-if="themeStore.currentId === t.id" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
               </button>
@@ -273,6 +322,7 @@ function closeDropdown() {
   align-items: center;
   gap: 10px;
   background: var(--bg-card);
+  backdrop-filter: var(--blur-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-full);
   padding: 8px 16px;
@@ -311,6 +361,7 @@ function closeDropdown() {
 .topbar-btn {
   padding: 8px 12px;
   background: var(--bg-card);
+  backdrop-filter: var(--blur-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
@@ -362,7 +413,8 @@ function closeDropdown() {
   position: relative;
   z-index: 1;
   width: 180px;
-  background: var(--bg-deep);
+  background: var(--bg-glass-heavy);
+  backdrop-filter: blur(20px);
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
@@ -413,6 +465,87 @@ function closeDropdown() {
   letter-spacing: 0.3px;
 }
 
+/* ═══ 主题风格切换 ═══ */
+.theme-wrapper {
+  position: relative;
+}
+.theme-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 200;
+}
+.theme-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+}
+.theme-panel {
+  position: relative;
+  z-index: 1;
+  width: 200px;
+  background: var(--bg-glass-heavy);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+  padding: 6px;
+  overflow: hidden;
+}
+.theme-panel-title {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  letter-spacing: 1px;
+  padding: 6px 10px 4px;
+  text-transform: uppercase;
+}
+.theme-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+  border: none;
+  background: transparent;
+  text-align: left;
+}
+.theme-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+}
+.theme-item.active {
+  color: var(--accent-blue);
+  background: rgba(255, 255, 255, 0.07);
+}
+.theme-item svg {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.theme-dots {
+  display: flex;
+  gap: 3px;
+  flex-shrink: 0;
+}
+.theme-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
+}
+.theme-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ═══ 连接钱包按钮（未连接状态）═══ */
 .wallet-connect-btn {
   display: flex;
@@ -458,6 +591,7 @@ function closeDropdown() {
   gap: 0;
   padding: 4px;
   background: var(--bg-card);
+  backdrop-filter: var(--blur-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-full);
   cursor: pointer;
@@ -512,7 +646,8 @@ function closeDropdown() {
 
 .dropdown-panel {
   width: 280px;
-  background: var(--bg-deep);
+  background: var(--bg-glass-heavy);
+  backdrop-filter: blur(20px);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45), 0 0 30px rgba(99, 179, 237, 0.06);

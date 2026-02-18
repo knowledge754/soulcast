@@ -775,6 +775,27 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 }
 @keyframes ssIn { from { opacity: 0; transform: translateY(10px); } }
 
+/* ═══ Glass card backdrop ═══ */
+.capsule-type,
+.date-input,
+.editor-wrap,
+.lock-mode,
+.unlock-option,
+.chain-item,
+.preview-capsule,
+.checklist,
+.sidebar-card,
+.gas-card,
+.tip-card,
+.capsule-card,
+.cd-unit,
+.received-card,
+.asset-add,
+.media-add,
+.preset-btn,
+.filter-pill {
+  backdrop-filter: var(--blur-card);
+}
 
 /* ═══ Tabs ═══ */
 .ss-tabs {

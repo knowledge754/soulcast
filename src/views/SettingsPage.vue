@@ -231,6 +231,7 @@ function handleSave() {
 /* ── Main Form ── */
 .settings-main {
   background: var(--bg-card);
+  backdrop-filter: var(--blur-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 28px;
@@ -494,6 +495,7 @@ function handleSave() {
 }
 .preview-card {
   background: var(--bg-card);
+  backdrop-filter: var(--blur-card);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 20px 16px 14px;

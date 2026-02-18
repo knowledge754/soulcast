@@ -110,6 +110,7 @@ function setFilter(f: string) {
 .photo-img-box {
   width: 100%;
   background: var(--bg-card);
+  backdrop-filter: var(--blur-card);
   display: flex;
   align-items: center;
   justify-content: center;

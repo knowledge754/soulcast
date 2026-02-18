@@ -264,6 +264,7 @@ function isActive(name: string) {
 /* ═══ 个人资料卡 ═══ */
 .profile-card {
   background: var(--bg-card);
+  backdrop-filter: var(--blur-card);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 14px;

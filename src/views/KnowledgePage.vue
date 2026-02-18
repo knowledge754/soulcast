@@ -111,6 +111,7 @@ const knowledgeCards = [
 
 .kb-card {
   background: var(--bg-card);
+  backdrop-filter: var(--blur-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 24px;

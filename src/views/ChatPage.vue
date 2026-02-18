@@ -189,6 +189,7 @@ function selectChat(idx: number) {
   grid-template-columns: 260px 1fr;
   gap: 0;
   background: var(--bg-card);
+  backdrop-filter: var(--blur-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   height: 540px;

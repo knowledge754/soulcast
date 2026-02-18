@@ -136,6 +136,7 @@ const feedItems = [
 /* ── Compose Box ── */
 .compose-box {
   background: var(--bg-card);
+  backdrop-filter: var(--blur-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 20px;
@@ -236,6 +237,7 @@ const feedItems = [
 /* ── Feed Items ── */
 .moment-feed-item {
   background: var(--bg-card);
+  backdrop-filter: var(--blur-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 20px;

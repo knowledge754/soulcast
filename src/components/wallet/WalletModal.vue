@@ -204,7 +204,8 @@ const walletLogos: Record<string, string> = {
   max-width: 480px;
   max-height: 85vh;
   overflow-y: auto;
-  background: var(--bg-deep);
+  background: var(--bg-glass-heavy);
+  backdrop-filter: blur(24px);
   border: 1px solid var(--border);
   border-radius: 20px;
   box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(99, 179, 237, 0.08);
@@ -368,6 +369,7 @@ const walletLogos: Record<string, string> = {
   border-radius: 12px;
   border: 1px solid var(--border);
   background: var(--bg-card);
+  backdrop-filter: var(--blur-card);
   cursor: pointer;
   transition: all 0.25s;
   position: relative;

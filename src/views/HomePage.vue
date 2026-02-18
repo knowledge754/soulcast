@@ -222,6 +222,7 @@ const moments = [
   position: relative;
   border-radius: var(--radius-lg);
   background: var(--bg-card);
+  backdrop-filter: var(--blur-card);
   border: 1px solid var(--border);
   padding: 40px;
   margin-bottom: 28px;
@@ -430,6 +431,7 @@ const moments = [
 }
 .post-card {
   background: var(--bg-card);
+  backdrop-filter: var(--blur-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 18px;
@@ -545,6 +547,7 @@ const moments = [
   flex: 1;
   min-width: 0;
   background: var(--bg-card);
+  backdrop-filter: var(--blur-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 18px;

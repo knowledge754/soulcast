@@ -7,9 +7,11 @@
   /* ── Background Palette ── */
   --bg-void: #040810;
   --bg-deep: #070d1a;
-  --bg-card: #0c1525;
-  --bg-glass: rgba(12, 21, 37, 0.7);
-  --bg-glass-heavy: rgba(4, 8, 16, 0.85);
+  --bg-card: rgba(12, 21, 37, 0.55);
+  --bg-card-solid: #0c1525;
+  --bg-glass: rgba(12, 21, 37, 0.45);
+  --bg-glass-heavy: rgba(4, 8, 16, 0.75);
+  --blur-card: blur(12px);
 
   /* ── Border ── */
   --border: rgba(99, 179, 237, 0.12);

@@ -1,14 +1,18 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import TheSidebar from './components/layout/TheSidebar.vue'
 import TheTopbar from './components/layout/TheTopbar.vue'
 import StarBackground from './components/layout/StarBackground.vue'
 import { useAppStore } from './stores/app'
 
 const app = useAppStore()
+const route = useRoute()
+const isHome = computed(() => route.name === 'home')
 </script>
 
 <template>
-  <StarBackground />
+  <StarBackground v-if="isHome" />
   <div id="app-shell">
     <TheSidebar />
     <main class="main-area" :class="{ collapsed: app.sidebarCollapsed }">
