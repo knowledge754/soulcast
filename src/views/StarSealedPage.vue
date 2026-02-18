@@ -165,24 +165,6 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 
 <template>
   <div class="ss-page">
-    <!-- ★ 宇宙深空背景 ★ -->
-    <div class="cosmos">
-      <div class="cosmos-gradient"></div>
-      <div class="star-field">
-        <div v-for="i in 140" :key="'s'+i" class="s"
-          :style="{
-            left: (Math.random() * 100) + '%',
-            top: (Math.random() * 100) + '%',
-            width: (0.3 + Math.random() * 1.8) + 'px',
-            height: (0.3 + Math.random() * 1.8) + 'px',
-            '--d': (3 + Math.random() * 7) + 's',
-            '--delay': (Math.random() * 8) + 's',
-            '--lo': (0.04 + Math.random() * 0.08),
-            '--hi': (0.3 + Math.random() * 0.6)
-          }"
-        ></div>
-      </div>
-    </div>
     <!-- Tab Nav -->
     <div class="ss-tabs">
       <button class="ss-tab" :class="{ active: activeTab === 'create' }" @click="showTab('create')">
@@ -458,9 +440,9 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
                 </div>
                 <!-- 六角防护罩 -->
                 <svg class="cv-hex-shield" viewBox="0 0 200 200" fill="none">
-                  <polygon points="100,10 178,55 178,145 100,190 22,145 22,55" stroke="rgba(96,165,250,0.12)" stroke-width="0.8" fill="none" />
-                  <polygon points="100,25 168,63 168,137 100,175 32,137 32,63" stroke="rgba(167,139,250,0.08)" stroke-width="0.5" fill="none" stroke-dasharray="3 5" />
-                  <polygon points="100,40 158,71 158,129 100,160 42,129 42,71" stroke="rgba(34,211,238,0.06)" stroke-width="0.5" fill="none" stroke-dasharray="2 6" />
+                  <polygon points="100,10 178,55 178,145 100,190 22,145 22,55" stroke="rgba(99,179,237,0.12)" stroke-width="0.8" fill="none" />
+                  <polygon points="100,25 168,63 168,137 100,175 32,137 32,63" stroke="rgba(183,148,244,0.08)" stroke-width="0.5" fill="none" stroke-dasharray="3 5" />
+                  <polygon points="100,40 158,71 158,129 100,160 42,129 42,71" stroke="rgba(118,228,247,0.06)" stroke-width="0.5" fill="none" stroke-dasharray="2 6" />
                 </svg>
                 <!-- 数据流轨道环 -->
                 <div class="cv-data-ring r1" :class="capsuleType"></div>
@@ -773,89 +755,26 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 </template>
 
 <style scoped>
-/* ═══ Variables — match prototype exactly ═══ */
+/* ═══ Variables — use global design system ═══ */
 .ss-page {
-  /* Prototype :root colors */
-  --void: #020408;
-  --deep: #060c16;
-  --surface: #0a1628;
-  --star-blue: #60a5fa;
-  --star-cyan: #22d3ee;
-  --star-purple: #a78bfa;
-  --star-gold: #fbbf24;
-  --star-pink: #f472b6;
-  --star-green: #34d399;
-  --ss-card: #0d1e35;
-  --ss-card-hover: #112240;
-  --ss-border: rgba(148,196,255,0.10);
-  --ss-border-bright: rgba(148,196,255,0.28);
-  --sealed-glow: 0 0 40px rgba(96,165,250,0.15);
-  --ss-r: 18px;
-  --ss-r-sm: 10px;
-  /* Override global text colors to match prototype */
-  --text-primary: #e8f4ff;
-  --text-secondary: #94a3b8;
-  --text-muted: #475569;
-  /* Override global bg */
-  --bg-void: #020408;
-  --bg-card: #0d1e35;
-  color: #e8f4ff;
+  --star-blue: var(--accent-blue);
+  --star-cyan: var(--accent-cyan);
+  --star-purple: var(--accent-purple);
+  --star-gold: var(--accent-warm);
+  --star-pink: var(--accent-pink);
+  --star-green: var(--accent-green);
+  --ss-card: var(--bg-card);
+  --ss-card-hover: var(--bg-glass);
+  --ss-border: var(--border);
+  --ss-border-bright: var(--border-hover);
+  --sealed-glow: var(--glow-blue);
+  --ss-r: var(--radius);
+  --ss-r-sm: var(--radius-sm);
   position: relative;
   animation: ssIn 0.4s ease;
 }
-/* Page-level background to override global body bg */
-.ss-page::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background: #020408;
-  z-index: -1;
-  pointer-events: none;
-}
 @keyframes ssIn { from { opacity: 0; transform: translateY(10px); } }
 
-/* ═══ Cosmic Background ═══ */
-.cosmos {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  overflow: hidden;
-}
-.cosmos-gradient {
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(ellipse 60% 50% at 20% 20%, rgba(96,165,250,0.04) 0%, transparent 70%),
-    radial-gradient(ellipse 50% 60% at 80% 70%, rgba(167,139,250,0.05) 0%, transparent 70%),
-    radial-gradient(ellipse 40% 40% at 50% 10%, rgba(34,211,238,0.03) 0%, transparent 70%);
-}
-.star-field {
-  position: absolute;
-  inset: 0;
-}
-.s {
-  position: absolute;
-  border-radius: 50%;
-  background: white;
-  animation: twinkle var(--d, 4s) var(--delay, 0s) ease-in-out infinite alternate;
-}
-@keyframes twinkle {
-  from { opacity: var(--lo, 0.05); transform: scale(0.8); }
-  to   { opacity: var(--hi, 0.6);  transform: scale(1.2); }
-}
-
-/* ═══ Content layer (above cosmos) ═══ */
-.ss-tabs,
-.create-layout,
-.my-cap-header,
-.filter-bar,
-.capsule-grid,
-.open-scene,
-.received-header,
-.received-grid,
-.step-panel,
-.preview-capsule { position: relative; z-index: 1; }
 
 /* ═══ Tabs ═══ */
 .ss-tabs {
@@ -892,7 +811,7 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
   justify-content: center;
   min-width: 18px;
   height: 18px;
-  background: rgba(96,165,250,0.15);
+  background: rgba(99,179,237,0.15);
   border-radius: 99px;
   font-size: 10px;
   color: var(--star-blue);
@@ -931,10 +850,10 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 }
 .step-item.active .step-num {
   background: var(--star-blue); border-color: var(--star-blue); color: white;
-  box-shadow: 0 0 16px rgba(96,165,250,0.4);
+  box-shadow: 0 0 16px rgba(99,179,237,0.4);
 }
 .step-item.done .step-num {
-  background: rgba(52,211,153,0.15); border-color: var(--star-green); color: var(--star-green);
+  background: rgba(104,211,145,0.15); border-color: var(--star-green); color: var(--star-green);
 }
 .step-label { font-size: 12px; color: var(--text-muted); transition: color 0.3s; }
 .step-item.active .step-label { color: var(--text-primary); }
@@ -942,7 +861,7 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 .step-line {
   flex: 1; height: 1px; background: var(--ss-border); margin: 0 12px;
 }
-.step-line.done { background: rgba(52,211,153,0.3); }
+.step-line.done { background: rgba(104,211,145,0.3); }
 
 /* Section eye */
 .section-eye {
@@ -1032,7 +951,7 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
   cursor: pointer; transition: all 0.15s;
   border: none; background: transparent;
 }
-.tb-btn:hover { background: rgba(96,165,250,0.1); color: var(--text-primary); }
+.tb-btn:hover { background: rgba(99,179,237,0.1); color: var(--text-primary); }
 .tb-sep { width: 1px; height: 20px; background: var(--ss-border); margin: 4px; align-self: center; }
 .editor-area {
   width: 100%; min-height: 200px; padding: 16px;
@@ -1077,7 +996,7 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
   border-radius: var(--ss-r-sm); padding: 14px; cursor: pointer; transition: all 0.2s;
 }
 .lock-mode:hover { border-color: var(--ss-border-bright); }
-.lock-mode.selected { border-color: var(--star-blue); background: rgba(96,165,250,0.07); }
+.lock-mode.selected { border-color: var(--star-blue); background: rgba(99,179,237,0.07); }
 .lm-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
 .lm-name { font-size: 13px; font-weight: 600; }
 .lm-desc { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
@@ -1091,7 +1010,7 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
   cursor: pointer; transition: all 0.2s; font-family: var(--font-mono);
 }
 .preset-btn:hover, .preset-btn.active {
-  background: rgba(96,165,250,0.1); border-color: rgba(96,165,250,0.4); color: var(--star-blue);
+  background: rgba(99,179,237,0.1); border-color: rgba(99,179,237,0.4); color: var(--star-blue);
 }
 
 /* Unlock */
@@ -1150,9 +1069,9 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
   background: var(--star-blue); border: none;
   border-radius: var(--ss-r-sm); color: white;
   font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.25s;
-  box-shadow: 0 4px 16px rgba(96,165,250,0.25);
+  box-shadow: 0 4px 16px rgba(99,179,237,0.25);
 }
-.btn-next:hover { background: #3b82f6; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(96,165,250,0.35); }
+.btn-next:hover { background: #3b82f6; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(99,179,237,0.35); }
 
 /* Seal btn */
 .seal-btn {
@@ -1185,7 +1104,7 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
   display: inline-flex; align-items: center; gap: 6px;
   padding: 4px 12px; border-radius: 99px;
   font-size: 11px; font-weight: 500;
-  background: rgba(96,165,250,0.1); border: 1px solid rgba(96,165,250,0.2);
+  background: rgba(99,179,237,0.1); border: 1px solid rgba(99,179,237,0.2);
   margin-bottom: 16px;
 }
 .preview-title { font-size: 22px; font-weight: 600; margin-bottom: 10px; line-height: 1.3; }
@@ -1200,7 +1119,7 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 }
 .lock-cd {
   font-family: var(--font-mono); font-size: 11px; color: var(--star-gold);
-  background: rgba(251,191,36,0.1); padding: 4px 10px; border-radius: 6px;
+  background: rgba(251,176,64,0.1); padding: 4px 10px; border-radius: 6px;
   display: flex; align-items: center; gap: 5px;
 }
 .ipfs-ok { margin-left: auto; font-family: var(--font-mono); font-size: 10px; color: var(--star-green); }
@@ -1230,8 +1149,8 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 }
 .capsule-visual {
   width: 100%; aspect-ratio: 1;
-  background: radial-gradient(circle at 30% 25%, #1e3a8a, #0a1628);
-  border-radius: 16px;
+  background: radial-gradient(circle at 30% 25%, rgba(99,179,237,0.15), var(--bg-deep, #070d1a));
+  border-radius: var(--radius);
   display: flex; align-items: center; justify-content: center;
   position: relative; overflow: hidden; margin-bottom: 14px;
 }
@@ -1240,9 +1159,9 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 .cv-deep-space {
   position: absolute; inset: 0;
   background:
-    radial-gradient(ellipse 60% 40% at 30% 25%, rgba(96,165,250,0.05) 0%, transparent 70%),
-    radial-gradient(ellipse 50% 50% at 70% 70%, rgba(167,139,250,0.06) 0%, transparent 70%),
-    radial-gradient(ellipse 35% 35% at 50% 15%, rgba(34,211,238,0.04) 0%, transparent 60%);
+    radial-gradient(ellipse 60% 40% at 30% 25%, rgba(99,179,237,0.05) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 50% at 70% 70%, rgba(183,148,244,0.06) 0%, transparent 70%),
+    radial-gradient(ellipse 35% 35% at 50% 15%, rgba(118,228,247,0.04) 0%, transparent 60%);
   animation: cvSpaceDrift 15s ease-in-out infinite alternate;
 }
 @keyframes cvSpaceDrift { 0% { opacity: 0.5; } 100% { opacity: 1; transform: scale(1.03); } }
@@ -1252,19 +1171,19 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
   position: absolute; width: 170px; height: 170px;
   border-radius: 50%; filter: blur(18px); opacity: 0.4;
   background: conic-gradient(from 0deg,
-    rgba(96,165,250,0.0) 0deg, rgba(96,165,250,0.15) 90deg,
-    rgba(167,139,250,0.12) 180deg, rgba(34,211,238,0.1) 270deg,
-    rgba(96,165,250,0.0) 360deg);
+    rgba(99,179,237,0.0) 0deg, rgba(99,179,237,0.15) 90deg,
+    rgba(183,148,244,0.12) 180deg, rgba(118,228,247,0.1) 270deg,
+    rgba(99,179,237,0.0) 360deg);
   animation: cvFieldSpin 12s linear infinite;
 }
 .cv-energy-field.other { background: conic-gradient(from 0deg,
-  rgba(167,139,250,0.0) 0deg, rgba(167,139,250,0.18) 90deg,
-  rgba(244,114,182,0.12) 180deg, rgba(96,165,250,0.1) 270deg,
-  rgba(167,139,250,0.0) 360deg); }
+  rgba(183,148,244,0.0) 0deg, rgba(183,148,244,0.18) 90deg,
+  rgba(246,135,179,0.12) 180deg, rgba(99,179,237,0.1) 270deg,
+  rgba(183,148,244,0.0) 360deg); }
 .cv-energy-field.world { background: conic-gradient(from 0deg,
-  rgba(251,191,36,0.0) 0deg, rgba(251,191,36,0.18) 90deg,
-  rgba(251,113,94,0.12) 180deg, rgba(167,139,250,0.08) 270deg,
-  rgba(251,191,36,0.0) 360deg); }
+  rgba(251,176,64,0.0) 0deg, rgba(251,176,64,0.18) 90deg,
+  rgba(251,113,94,0.12) 180deg, rgba(183,148,244,0.08) 270deg,
+  rgba(251,176,64,0.0) 360deg); }
 @keyframes cvFieldSpin { to { transform: rotate(360deg); } }
 
 /* ── 星尘 ── */
@@ -1286,19 +1205,19 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 /* ── 数据流环 ── */
 .cv-data-ring {
   position: absolute; border-radius: 50%;
-  border: 1px solid rgba(96,165,250,0.15);
+  border: 1px solid rgba(99,179,237,0.15);
   animation: cvDataPulse 4s ease-in-out infinite;
 }
 .cv-data-ring.r1 {
   width: 130px; height: 130px;
-  border: 1px dashed rgba(96,165,250,0.2);
+  border: 1px dashed rgba(99,179,237,0.2);
   animation-duration: 3.5s;
 }
-.cv-data-ring.r1.other { border-color: rgba(167,139,250,0.2); }
-.cv-data-ring.r1.world { border-color: rgba(251,191,36,0.2); }
+.cv-data-ring.r1.other { border-color: rgba(183,148,244,0.2); }
+.cv-data-ring.r1.world { border-color: rgba(251,176,64,0.2); }
 .cv-data-ring.r2 {
   width: 165px; height: 165px;
-  border: 1px dotted rgba(167,139,250,0.1);
+  border: 1px dotted rgba(183,148,244,0.1);
   animation-delay: 1s; animation-duration: 5s;
 }
 @keyframes cvDataPulse {
@@ -1335,12 +1254,12 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 .cv-cap-glow {
   position: absolute; inset: -30px -15px;
   border-radius: 50%;
-  background: radial-gradient(ellipse, rgba(96,165,250,0.3) 0%, transparent 70%);
+  background: radial-gradient(ellipse, rgba(99,179,237,0.3) 0%, transparent 70%);
   animation: cvCapGlowPulse 3s ease-in-out infinite;
   filter: blur(5px);
 }
-.cv-cap-glow.other { background: radial-gradient(ellipse, rgba(167,139,250,0.3) 0%, transparent 70%); }
-.cv-cap-glow.world { background: radial-gradient(ellipse, rgba(251,191,36,0.3) 0%, transparent 70%); }
+.cv-cap-glow.other { background: radial-gradient(ellipse, rgba(183,148,244,0.3) 0%, transparent 70%); }
+.cv-cap-glow.world { background: radial-gradient(ellipse, rgba(251,176,64,0.3) 0%, transparent 70%); }
 @keyframes cvCapGlowPulse { 0%,100% { opacity: 0.5; transform: scale(1); } 50% { opacity: 1; transform: scale(1.1); } }
 
 /* 胶囊主体 — 圆角药丸形 */
@@ -1351,9 +1270,9 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
     #b0d4ff 0%, #60a5fa 15%, #2563eb 35%,
     #1e40af 50%, #1d4ed8 65%, #60a5fa 85%, #93c5fd 100%);
   box-shadow:
-    0 0 25px rgba(96,165,250,0.5),
-    0 0 50px rgba(96,165,250,0.2),
-    0 0 80px rgba(96,165,250,0.1),
+    0 0 25px rgba(99,179,237,0.5),
+    0 0 50px rgba(99,179,237,0.2),
+    0 0 80px rgba(99,179,237,0.1),
     inset 0 0 20px rgba(255,255,255,0.08);
   position: relative; overflow: hidden;
   border: 1px solid rgba(148,196,255,0.25);
@@ -1362,15 +1281,15 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
   background: linear-gradient(180deg,
     #e9ddff 0%, #a78bfa 15%, #7c3aed 35%,
     #5b21b6 50%, #7c3aed 65%, #a78bfa 85%, #ddd6fe 100%);
-  box-shadow: 0 0 25px rgba(167,139,250,0.5), 0 0 50px rgba(167,139,250,0.2), 0 0 80px rgba(167,139,250,0.1), inset 0 0 20px rgba(255,255,255,0.08);
-  border-color: rgba(167,139,250,0.25);
+  box-shadow: 0 0 25px rgba(183,148,244,0.5), 0 0 50px rgba(183,148,244,0.2), 0 0 80px rgba(183,148,244,0.1), inset 0 0 20px rgba(255,255,255,0.08);
+  border-color: rgba(183,148,244,0.25);
 }
 .cv-capsule.world {
   background: linear-gradient(180deg,
     #fef3c7 0%, #fbbf24 15%, #d97706 35%,
     #b45309 50%, #d97706 65%, #fbbf24 85%, #fef3c7 100%);
-  box-shadow: 0 0 25px rgba(251,191,36,0.5), 0 0 50px rgba(251,191,36,0.2), 0 0 80px rgba(251,191,36,0.1), inset 0 0 20px rgba(255,255,255,0.1);
-  border-color: rgba(251,191,36,0.25);
+  box-shadow: 0 0 25px rgba(251,176,64,0.5), 0 0 50px rgba(251,176,64,0.2), 0 0 80px rgba(251,176,64,0.1), inset 0 0 20px rgba(255,255,255,0.1);
+  border-color: rgba(251,176,64,0.25);
 }
 
 /* 全息纹理 */
@@ -1400,19 +1319,19 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
   top: 50%; transform: translateY(-50%);
   height: 6px;
   background: linear-gradient(90deg,
-    transparent, rgba(255,255,255,0.6), rgba(96,165,250,0.8), rgba(255,255,255,0.6), transparent);
+    transparent, rgba(255,255,255,0.6), rgba(99,179,237,0.8), rgba(255,255,255,0.6), transparent);
   border-radius: 3px;
   overflow: hidden;
 }
 .cv-cap-band.other {
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), rgba(167,139,250,0.9), rgba(255,255,255,0.6), transparent);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), rgba(183,148,244,0.9), rgba(255,255,255,0.6), transparent);
 }
 .cv-cap-band.world {
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), rgba(251,191,36,0.9), rgba(255,255,255,0.6), transparent);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), rgba(251,176,64,0.9), rgba(255,255,255,0.6), transparent);
 }
 .cv-band-glow {
   position: absolute; inset: -4px -20px;
-  background: linear-gradient(90deg, transparent, rgba(96,165,250,0.3), transparent);
+  background: linear-gradient(90deg, transparent, rgba(99,179,237,0.3), transparent);
   animation: cvBandPulse 2s ease-in-out infinite;
 }
 @keyframes cvBandPulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
@@ -1433,7 +1352,7 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
   position: absolute; bottom: 16px;
   left: 50%; transform: translateX(-50%);
   font-size: 10px; color: rgba(255,255,255,0.35);
-  text-shadow: 0 0 8px rgba(96,165,250,0.3);
+  text-shadow: 0 0 8px rgba(99,179,237,0.3);
   letter-spacing: 1px;
 }
 
@@ -1441,23 +1360,23 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 .cv-cap-reflection {
   width: 36px; height: 18px;
   border-radius: 50%;
-  background: radial-gradient(ellipse, rgba(96,165,250,0.2) 0%, transparent 70%);
+  background: radial-gradient(ellipse, rgba(99,179,237,0.2) 0%, transparent 70%);
   margin: 8px auto 0;
   filter: blur(4px);
 }
-.cv-cap-reflection.other { background: radial-gradient(ellipse, rgba(167,139,250,0.2) 0%, transparent 70%); }
-.cv-cap-reflection.world { background: radial-gradient(ellipse, rgba(251,191,36,0.2) 0%, transparent 70%); }
+.cv-cap-reflection.other { background: radial-gradient(ellipse, rgba(183,148,244,0.2) 0%, transparent 70%); }
+.cv-cap-reflection.world { background: radial-gradient(ellipse, rgba(251,176,64,0.2) 0%, transparent 70%); }
 
 /* ── 浮动符文 ── */
 .cv-rune {
   position: absolute;
   font-size: 10px;
-  color: rgba(96,165,250,0.2);
+  color: rgba(99,179,237,0.2);
   animation: cvRuneFloat 6s ease-in-out infinite;
 }
-.cv-rune.r-1 { top: 18%; left: 14%; animation-delay: 0s; font-size: 14px; color: rgba(167,139,250,0.15); }
-.cv-rune.r-2 { top: 28%; right: 16%; animation-delay: 2s; font-size: 11px; color: rgba(34,211,238,0.15); }
-.cv-rune.r-3 { bottom: 20%; left: 20%; animation-delay: 4s; font-size: 9px; color: rgba(251,191,36,0.2); }
+.cv-rune.r-1 { top: 18%; left: 14%; animation-delay: 0s; font-size: 14px; color: rgba(183,148,244,0.15); }
+.cv-rune.r-2 { top: 28%; right: 16%; animation-delay: 2s; font-size: 11px; color: rgba(118,228,247,0.15); }
+.cv-rune.r-3 { bottom: 20%; left: 20%; animation-delay: 4s; font-size: 9px; color: rgba(251,176,64,0.2); }
 @keyframes cvRuneFloat {
   0%,100% { transform: translateY(0) rotate(0deg); opacity: 0.3; }
   50% { transform: translateY(-6px) rotate(10deg); opacity: 0.7; }
@@ -1489,7 +1408,7 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 .green { color: var(--star-green) !important; }
 
 .tip-card {
-  background: var(--ss-card); border: 1px solid rgba(251,191,36,0.15);
+  background: var(--ss-card); border: 1px solid rgba(251,176,64,0.15);
   border-radius: var(--ss-r); padding: 14px 16px;
 }
 .tip-title {
@@ -1516,7 +1435,7 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
   cursor: pointer; transition: all 0.2s; background: transparent;
 }
 .filter-pill:hover { border-color: var(--ss-border-bright); color: var(--text-secondary); }
-.filter-pill.active { background: rgba(96,165,250,0.1); border-color: rgba(96,165,250,0.3); color: var(--star-blue); }
+.filter-pill.active { background: rgba(99,179,237,0.1); border-color: rgba(99,179,237,0.3); color: var(--star-blue); }
 
 .capsule-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
 .capsule-card {
@@ -1524,7 +1443,7 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
   border-radius: var(--ss-r); overflow: hidden; cursor: pointer;
   transition: all 0.3s; position: relative;
 }
-.capsule-card:hover { border-color: var(--ss-border-bright); transform: translateY(-4px); box-shadow: 0 0 40px rgba(96,165,250,0.15); }
+.capsule-card:hover { border-color: var(--ss-border-bright); transform: translateY(-4px); box-shadow: 0 0 40px rgba(99,179,237,0.15); }
 .cc-visual {
   height: 130px; position: relative; overflow: hidden;
   display: flex; align-items: center; justify-content: center;
@@ -1535,17 +1454,17 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 .cc-visual.gold { background: linear-gradient(135deg, #0f1a2d, #1a1a0f); }
 .cc-visual.pink { background: linear-gradient(135deg, #1a0f0f, #0f1525); }
 .cc-visual.green { background: linear-gradient(135deg, #0f1a0f, #0f1f0f); opacity: 0.7; }
-.cc-ring-1 { position: absolute; width: 80px; height: 80px; border-radius: 50%; border: 1px solid rgba(96,165,250,0.2); animation: ringPulse 3s ease-in-out infinite; }
-.cc-ring-2 { position: absolute; width: 105px; height: 105px; border-radius: 50%; border: 1px solid rgba(96,165,250,0.12); animation: ringPulse 3s 0.5s ease-in-out infinite; }
+.cc-ring-1 { position: absolute; width: 80px; height: 80px; border-radius: 50%; border: 1px solid rgba(99,179,237,0.2); animation: ringPulse 3s ease-in-out infinite; }
+.cc-ring-2 { position: absolute; width: 105px; height: 105px; border-radius: 50%; border: 1px solid rgba(99,179,237,0.12); animation: ringPulse 3s 0.5s ease-in-out infinite; }
 .cc-orb {
   width: 50px; height: 50px; border-radius: 50%;
   background: radial-gradient(circle at 35% 30%, #93c5fd, #1d4ed8);
-  box-shadow: 0 0 30px rgba(96,165,250,0.3); z-index: 2; position: relative;
+  box-shadow: 0 0 30px rgba(99,179,237,0.3); z-index: 2; position: relative;
 }
-.cc-orb.purple { background: radial-gradient(circle at 35% 30%, #ddd6fe, #7c3aed); box-shadow: 0 0 30px rgba(167,139,250,0.3); }
-.cc-orb.gold { background: radial-gradient(circle at 35% 30%, #fef3c7, #d97706); box-shadow: 0 0 30px rgba(251,191,36,0.3); }
-.cc-orb.green { background: radial-gradient(circle at 35% 30%, #d1fae5, #059669); box-shadow: 0 0 30px rgba(52,211,153,0.3); width: 40px; height: 40px; opacity: 0.6; }
-.cc-orb.pink { background: radial-gradient(circle at 35% 30%, #fce7f3, #db2777); box-shadow: 0 0 30px rgba(244,114,182,0.3); }
+.cc-orb.purple { background: radial-gradient(circle at 35% 30%, #ddd6fe, #7c3aed); box-shadow: 0 0 30px rgba(183,148,244,0.3); }
+.cc-orb.gold { background: radial-gradient(circle at 35% 30%, #fef3c7, #d97706); box-shadow: 0 0 30px rgba(251,176,64,0.3); }
+.cc-orb.green { background: radial-gradient(circle at 35% 30%, #d1fae5, #059669); box-shadow: 0 0 30px rgba(104,211,145,0.3); width: 40px; height: 40px; opacity: 0.6; }
+.cc-orb.pink { background: radial-gradient(circle at 35% 30%, #fce7f3, #db2777); box-shadow: 0 0 30px rgba(246,135,179,0.3); }
 
 .cc-status {
   position: absolute; top: 10px; right: 10px;
@@ -1553,9 +1472,9 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
   font-size: 10px; font-weight: 500; font-family: var(--font-mono);
   display: flex; align-items: center; gap: 4px;
 }
-.status-sealed { background: rgba(96,165,250,0.15); color: var(--star-blue); border: 1px solid rgba(96,165,250,0.2); }
-.status-ready { background: rgba(251,191,36,0.15); color: var(--star-gold); border: 1px solid rgba(251,191,36,0.2); }
-.status-opened { background: rgba(52,211,153,0.15); color: var(--star-green); border: 1px solid rgba(52,211,153,0.2); }
+.status-sealed { background: rgba(99,179,237,0.15); color: var(--star-blue); border: 1px solid rgba(99,179,237,0.2); }
+.status-ready { background: rgba(251,176,64,0.15); color: var(--star-gold); border: 1px solid rgba(251,176,64,0.2); }
+.status-opened { background: rgba(104,211,145,0.15); color: var(--star-green); border: 1px solid rgba(104,211,145,0.2); }
 .status-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
 .rc-status { margin-left: auto; }
 
@@ -1568,8 +1487,8 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
   font-family: var(--font-mono); font-size: 11px;
   padding: 3px 8px; border-radius: 4px; margin-top: 6px;
 }
-.cc-countdown.sealed { color: var(--star-gold); background: rgba(251,191,36,0.08); }
-.cc-countdown.ready { color: var(--star-green); background: rgba(52,211,153,0.08); }
+.cc-countdown.sealed { color: var(--star-gold); background: rgba(251,176,64,0.08); }
+.cc-countdown.ready { color: var(--star-green); background: rgba(104,211,145,0.08); }
 .cc-opened { font-size: 11px; color: var(--star-green); margin-top: 6px; display: flex; align-items: center; gap: 4px; }
 .cc-meta { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
 .cc-date { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); }
@@ -1582,7 +1501,7 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 }
 .bh-glow {
   position: absolute; inset: -20px; border-radius: 50%;
-  background: radial-gradient(circle, rgba(96,165,250,0.08) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(99,179,237,0.08) 0%, transparent 70%);
   animation: glowPulse 3s ease-in-out infinite;
 }
 @keyframes glowPulse { 0%,100% { opacity: 0.5; } 50% { opacity: 1; } }
@@ -1590,25 +1509,25 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
   position: absolute; inset: 0; border-radius: 50%;
   background: conic-gradient(
     from 0deg,
-    rgba(251,191,36,0.0) 0deg, rgba(251,191,36,0.4) 45deg,
-    rgba(251,113,94,0.5) 90deg, rgba(251,191,36,0.2) 135deg,
-    rgba(96,165,250,0.3) 180deg, rgba(167,139,250,0.4) 225deg,
-    rgba(96,165,250,0.2) 270deg, rgba(251,191,36,0.1) 315deg,
-    rgba(251,191,36,0.0) 360deg
+    rgba(251,176,64,0.0) 0deg, rgba(251,176,64,0.4) 45deg,
+    rgba(251,113,94,0.5) 90deg, rgba(251,176,64,0.2) 135deg,
+    rgba(99,179,237,0.3) 180deg, rgba(183,148,244,0.4) 225deg,
+    rgba(99,179,237,0.2) 270deg, rgba(251,176,64,0.1) 315deg,
+    rgba(251,176,64,0.0) 360deg
   );
   animation: diskSpin 8s linear infinite; filter: blur(8px); opacity: 0.7;
 }
 @keyframes diskSpin { to { transform: rotate(360deg); } }
 .photon-ring {
   position: absolute; inset: 40px; border-radius: 50%;
-  border: 2px solid rgba(251,191,36,0.5);
-  box-shadow: 0 0 20px rgba(251,191,36,0.3), inset 0 0 20px rgba(251,191,36,0.1);
+  border: 2px solid rgba(251,176,64,0.5);
+  box-shadow: 0 0 20px rgba(251,176,64,0.3), inset 0 0 20px rgba(251,176,64,0.1);
   animation: photonSpin 4s linear infinite;
 }
 @keyframes photonSpin { to { transform: rotate(-360deg); } }
 .bh-inner-ring {
   position: absolute; inset: 55px; border-radius: 50%;
-  border: 1px solid rgba(96,165,250,0.3);
+  border: 1px solid rgba(99,179,237,0.3);
   animation: ringPulse 2.5s ease-in-out infinite;
 }
 .orbit-p {
@@ -1624,11 +1543,11 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 .bh-void {
   position: absolute; inset: 70px; border-radius: 50%;
   background: radial-gradient(circle, #000 60%, #050810 100%);
-  box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 30px rgba(96,165,250,0.05);
+  box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 30px rgba(99,179,237,0.05);
   display: flex; align-items: center; justify-content: center;
   transition: all 0.3s;
 }
-.bh-text { font-size: 13px; color: rgba(96,165,250,0.5); text-align: center; line-height: 1.6; letter-spacing: 0.5px; }
+.bh-text { font-size: 13px; color: rgba(99,179,237,0.5); text-align: center; line-height: 1.6; letter-spacing: 0.5px; }
 
 .open-info { text-align: center; max-width: 480px; }
 .open-title { font-size: 26px; font-weight: 600; margin-bottom: 10px; line-height: 1.3; }
@@ -1644,7 +1563,7 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 .open-chip.ok { color: var(--star-green); }
 .countdown-box { display: flex; gap: 12px; justify-content: center; margin-bottom: 28px; }
 .cd-unit {
-  text-align: center; background: var(--ss-card); border: 1px solid rgba(52,211,153,0.3);
+  text-align: center; background: var(--ss-card); border: 1px solid rgba(104,211,145,0.3);
   border-radius: var(--ss-r-sm); padding: 12px 16px; min-width: 64px;
 }
 .cd-num { font-family: var(--font-mono); font-size: 28px; font-weight: 500; color: var(--star-green); line-height: 1; }
@@ -1652,12 +1571,12 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 
 .open-actions { display: flex; gap: 12px; justify-content: center; align-items: center; }
 .btn-share {
-  padding: 12px 24px; background: rgba(96,165,250,0.1);
-  border: 1px solid rgba(96,165,250,0.2); border-radius: var(--ss-r-sm);
+  padding: 12px 24px; background: rgba(99,179,237,0.1);
+  border: 1px solid rgba(99,179,237,0.2); border-radius: var(--ss-r-sm);
   color: var(--star-blue); font-size: 13px; cursor: pointer; transition: all 0.2s;
   display: flex; align-items: center; gap: 6px;
 }
-.btn-share:hover { background: rgba(96,165,250,0.15); }
+.btn-share:hover { background: rgba(99,179,237,0.15); }
 .open-chain-info {
   margin-top: 20px; font-family: var(--font-mono); font-size: 10px;
   color: var(--text-muted); text-align: center; line-height: 1.8;
@@ -1674,7 +1593,7 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
   content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
   background: linear-gradient(90deg, var(--from-color), var(--to-color)); opacity: 0.6;
 }
-.received-card:hover { border-color: var(--ss-border-bright); transform: translateY(-3px); box-shadow: 0 0 40px rgba(96,165,250,0.15); }
+.received-card:hover { border-color: var(--ss-border-bright); transform: translateY(-3px); box-shadow: 0 0 40px rgba(99,179,237,0.15); }
 .rc-from { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
 .rc-avatar {
   width: 36px; height: 36px; border-radius: 50%;
@@ -1729,8 +1648,8 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
   position: absolute; inset: -60px;
   border-radius: 50%;
   background: radial-gradient(circle,
-    rgba(96,165,250,0.06) 0%,
-    rgba(167,139,250,0.04) 30%,
+    rgba(99,179,237,0.06) 0%,
+    rgba(183,148,244,0.04) 30%,
     transparent 70%
   );
   animation: soGlowPulse 3s ease-in-out infinite;
@@ -1743,17 +1662,17 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
   border-radius: 50%;
   background: conic-gradient(
     from 0deg,
-    rgba(251,191,36,0.0) 0deg,
-    rgba(251,191,36,0.5) 30deg,
+    rgba(251,176,64,0.0) 0deg,
+    rgba(251,176,64,0.5) 30deg,
     rgba(251,113,94,0.6) 60deg,
-    rgba(244,114,182,0.5) 90deg,
-    rgba(251,191,36,0.3) 120deg,
-    rgba(96,165,250,0.4) 150deg,
-    rgba(167,139,250,0.6) 200deg,
-    rgba(34,211,238,0.4) 240deg,
-    rgba(96,165,250,0.3) 280deg,
-    rgba(251,191,36,0.2) 320deg,
-    rgba(251,191,36,0.0) 360deg
+    rgba(246,135,179,0.5) 90deg,
+    rgba(251,176,64,0.3) 120deg,
+    rgba(99,179,237,0.4) 150deg,
+    rgba(183,148,244,0.6) 200deg,
+    rgba(118,228,247,0.4) 240deg,
+    rgba(99,179,237,0.3) 280deg,
+    rgba(251,176,64,0.2) 320deg,
+    rgba(251,176,64,0.0) 360deg
   );
   animation: soDiskSpin 6s linear infinite;
   filter: blur(10px);
@@ -1764,13 +1683,13 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
   border-radius: 50%;
   background: conic-gradient(
     from 180deg,
-    rgba(96,165,250,0.0) 0deg,
-    rgba(96,165,250,0.4) 60deg,
-    rgba(167,139,250,0.5) 120deg,
-    rgba(251,191,36,0.3) 180deg,
-    rgba(244,114,182,0.4) 240deg,
-    rgba(34,211,238,0.3) 300deg,
-    rgba(96,165,250,0.0) 360deg
+    rgba(99,179,237,0.0) 0deg,
+    rgba(99,179,237,0.4) 60deg,
+    rgba(183,148,244,0.5) 120deg,
+    rgba(251,176,64,0.3) 180deg,
+    rgba(246,135,179,0.4) 240deg,
+    rgba(118,228,247,0.3) 300deg,
+    rgba(99,179,237,0.0) 360deg
   );
   animation: soDiskSpin 4s linear infinite reverse;
   filter: blur(6px);
@@ -1782,11 +1701,11 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 .so-photon {
   position: absolute; inset: 50px;
   border-radius: 50%;
-  border: 2.5px solid rgba(251,191,36,0.6);
+  border: 2.5px solid rgba(251,176,64,0.6);
   box-shadow:
-    0 0 30px rgba(251,191,36,0.4),
-    0 0 60px rgba(251,191,36,0.15),
-    inset 0 0 30px rgba(251,191,36,0.15);
+    0 0 30px rgba(251,176,64,0.4),
+    0 0 60px rgba(251,176,64,0.15),
+    inset 0 0 30px rgba(251,176,64,0.15);
   animation: soPhotonSpin 3.5s linear infinite;
 }
 @keyframes soPhotonSpin { to { transform: rotate(-360deg); } }
@@ -1794,12 +1713,12 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 /* 引力透镜环 */
 .so-lens-ring {
   position: absolute; border-radius: 50%;
-  border: 1px solid rgba(96,165,250,0.15);
+  border: 1px solid rgba(99,179,237,0.15);
   animation: soLensWave 4s ease-in-out infinite;
 }
-.so-lens-ring.r1 { inset: 35px; animation-delay: 0s; border-color: rgba(167,139,250,0.2); }
+.so-lens-ring.r1 { inset: 35px; animation-delay: 0s; border-color: rgba(183,148,244,0.2); }
 .so-lens-ring.r2 { inset: 65px; animation-delay: 0.5s; }
-.so-lens-ring.r3 { inset: 80px; animation-delay: 1s; border-color: rgba(34,211,238,0.15); }
+.so-lens-ring.r3 { inset: 80px; animation-delay: 1s; border-color: rgba(118,228,247,0.15); }
 @keyframes soLensWave {
   0%,100% { transform: scale(1) rotate(0deg); opacity: 0.3; }
   50% { transform: scale(1.06) rotate(15deg); opacity: 0.8; }
@@ -1828,7 +1747,7 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
   margin: -20px 0 0 -20px;
   border-radius: 50%;
   background: radial-gradient(circle at 35% 30%, #93c5fd, #1d4ed8);
-  box-shadow: 0 0 40px rgba(96,165,250,0.6), 0 0 80px rgba(96,165,250,0.3);
+  box-shadow: 0 0 40px rgba(99,179,237,0.6), 0 0 80px rgba(99,179,237,0.3);
   z-index: 10;
   transition: all 1.5s cubic-bezier(0.55, 0, 0.1, 1);
   animation: soCapsuleFloat 2s ease-in-out infinite;
@@ -1836,7 +1755,7 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 .so-capsule-orb.sucked {
   width: 0; height: 0; margin: 0 0 0 0;
   opacity: 0;
-  box-shadow: 0 0 100px rgba(96,165,250,0.9), 0 0 200px rgba(167,139,250,0.4);
+  box-shadow: 0 0 100px rgba(99,179,237,0.9), 0 0 200px rgba(183,148,244,0.4);
   animation: none;
 }
 @keyframes soCapsuleFloat {
@@ -1848,11 +1767,11 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 .so-void {
   position: absolute; inset: 95px;
   border-radius: 50%;
-  background: radial-gradient(circle, #000000 50%, #030712 80%, rgba(96,165,250,0.03) 100%);
+  background: radial-gradient(circle, #000000 50%, #030712 80%, rgba(99,179,237,0.03) 100%);
   box-shadow:
     0 0 60px rgba(0,0,0,0.9),
     0 0 120px rgba(0,0,0,0.6),
-    inset 0 0 40px rgba(96,165,250,0.04);
+    inset 0 0 40px rgba(99,179,237,0.04);
   z-index: 5;
   transition: all 1s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -1861,7 +1780,7 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
   box-shadow:
     0 0 80px rgba(0,0,0,0.95),
     0 0 160px rgba(0,0,0,0.7),
-    inset 0 0 60px rgba(52,211,153,0.06);
+    inset 0 0 60px rgba(104,211,145,0.06);
 }
 
 /* 文字层 */
@@ -1899,7 +1818,7 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 /* 进度条 */
 .so-progress {
   width: 240px; height: 3px;
-  background: rgba(96,165,250,0.1);
+  background: rgba(99,179,237,0.1);
   border-radius: 2px;
   margin: 24px auto 10px;
   overflow: hidden;
@@ -1909,7 +1828,7 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
   background: linear-gradient(90deg, var(--star-blue), var(--star-purple), var(--star-cyan));
   border-radius: 2px;
   transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 0 10px rgba(96,165,250,0.4);
+  box-shadow: 0 0 10px rgba(99,179,237,0.4);
 }
 .so-progress-steps {
   display: flex; justify-content: space-between;
