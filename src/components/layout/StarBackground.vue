@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
 
+const props = withDefaults(defineProps<{ full?: boolean }>(), { full: false })
+
 interface BurstParticle {
   id: number; size: number; color: string; tx: number; ty: number
   dur: number; delay: number; glow: number
@@ -67,7 +69,21 @@ let trailTimer: ReturnType<typeof setInterval> | null = null
 let trailId = 0
 
 onMounted(() => {
-  // Energy rings ×8
+  // Background stars — always rendered
+  for (let i = 0; i < 150; i++) {
+    bgStars.value.push({
+      id: i,
+      left: `${Math.random() * 100}%`,
+      top: `${Math.random() * 100}%`,
+      size: 1 + Math.random() * 2,
+      opacity: 0.2 + Math.random() * 0.4
+    })
+  }
+
+  if (!props.full) return
+
+  // ── Everything below: full cosmic burst mode only ──
+
   for (let i = 0; i < 8; i++) {
     energyRings.value.push({
       id: i, color: ringColors[i % ringColors.length],
@@ -75,7 +91,6 @@ onMounted(() => {
     })
   }
 
-  // Burst particles ×200
   for (let i = 0; i < 200; i++) {
     const angle = (Math.PI * 2 * i) / 200
     const dist = 600 + Math.random() * 400
@@ -88,7 +103,6 @@ onMounted(() => {
     })
   }
 
-  // Warp lines ×30
   for (let i = 0; i < 30; i++) {
     warpLines.value.push({
       id: i, h: 100 + Math.random() * 150,
@@ -98,7 +112,6 @@ onMounted(() => {
     })
   }
 
-  // Nebula waves ×6
   for (let i = 0; i < 6; i++) {
     nebulaWaves.value.push({
       id: i, color: waveColors[i % waveColors.length],
@@ -106,7 +119,6 @@ onMounted(() => {
     })
   }
 
-  // Flying dots ×150
   for (let i = 0; i < 150; i++) {
     const angle = (Math.PI * 2 * i) / 150
     const dist = 500 + Math.random() * 500
@@ -117,25 +129,12 @@ onMounted(() => {
     })
   }
 
-  // Distortion rings ×5
   for (let i = 0; i < 5; i++) {
     distortionRings.value.push({
       id: i, size: 200 + i * 100, delay: i * 0.6
     })
   }
 
-  // Background stars ×100
-  for (let i = 0; i < 100; i++) {
-    bgStars.value.push({
-      id: i,
-      left: `${Math.random() * 100}%`,
-      top: `${Math.random() * 100}%`,
-      size: 1 + Math.random() * 2,
-      opacity: 0.2 + Math.random() * 0.4
-    })
-  }
-
-  // Star trails — recycling pool
   const pool: StarTrail[] = []
   for (let i = 0; i < 20; i++) {
     pool.push(makeTrail(i))
@@ -166,86 +165,80 @@ function makeTrail(id: number): StarTrail {
 
 <template>
   <div class="cosmos" aria-hidden="true">
-    <!-- Energy core -->
-    <div class="energy-core"></div>
+    <template v-if="full">
+      <div class="energy-core"></div>
 
-    <!-- Energy rings -->
-    <div class="energy-ring"
-      v-for="r in energyRings" :key="'r'+r.id"
-      :style="{
-        width: '100px', height: '100px',
-        '--ring-color': r.color,
-        '--dur': r.dur + 's',
-        animationDelay: r.delay + 's'
-      }"
-    ></div>
+      <div class="energy-ring"
+        v-for="r in energyRings" :key="'r'+r.id"
+        :style="{
+          width: '100px', height: '100px',
+          '--ring-color': r.color,
+          '--dur': r.dur + 's',
+          animationDelay: r.delay + 's'
+        }"
+      ></div>
 
-    <!-- Burst particles -->
-    <div class="burst-particle"
-      v-for="p in burstParticles" :key="'bp'+p.id"
-      :style="{
-        '--size': p.size + 'px',
-        '--color': p.color,
-        '--tx': p.tx + 'px', '--ty': p.ty + 'px',
-        '--dur': p.dur + 's', '--glow': p.glow + 'px',
-        animationDelay: p.delay + 's'
-      }"
-    ></div>
+      <div class="burst-particle"
+        v-for="p in burstParticles" :key="'bp'+p.id"
+        :style="{
+          '--size': p.size + 'px',
+          '--color': p.color,
+          '--tx': p.tx + 'px', '--ty': p.ty + 'px',
+          '--dur': p.dur + 's', '--glow': p.glow + 'px',
+          animationDelay: p.delay + 's'
+        }"
+      ></div>
 
-    <!-- Star trails -->
-    <div class="star-trail"
-      v-for="t in starTrails" :key="'st'+t.id + '-' + t.startY"
-      :style="{
-        '--w': t.w + 'px',
-        '--start-x': '-200px', '--start-y': t.startY + 'px',
-        '--end-x': '110vw', '--end-y': t.endY + 'px',
-        '--angle': t.angle + 'deg',
-        '--trail-color': t.color,
-        '--zoom-dur': t.dur + 's'
-      }"
-    ></div>
+      <div class="star-trail"
+        v-for="t in starTrails" :key="'st'+t.id + '-' + t.startY"
+        :style="{
+          '--w': t.w + 'px',
+          '--start-x': '-200px', '--start-y': t.startY + 'px',
+          '--end-x': '110vw', '--end-y': t.endY + 'px',
+          '--angle': t.angle + 'deg',
+          '--trail-color': t.color,
+          '--zoom-dur': t.dur + 's'
+        }"
+      ></div>
 
-    <!-- Warp speed lines -->
-    <div class="warp-line"
-      v-for="w in warpLines" :key="'wl'+w.id"
-      :style="{
-        '--h': w.h + 'px', '--warp-x': w.x + 'px',
-        '--warp-color': w.color, '--warp-dur': w.dur + 's',
-        animationDelay: w.delay + 's'
-      }"
-    ></div>
+      <div class="warp-line"
+        v-for="w in warpLines" :key="'wl'+w.id"
+        :style="{
+          '--h': w.h + 'px', '--warp-x': w.x + 'px',
+          '--warp-color': w.color, '--warp-dur': w.dur + 's',
+          animationDelay: w.delay + 's'
+        }"
+      ></div>
 
-    <!-- Nebula waves -->
-    <div class="nebula-wave"
-      v-for="n in nebulaWaves" :key="'nw'+n.id"
-      :style="{
-        width: '300px', height: '300px',
-        '--wave-color': n.color, '--wave-dur': n.dur + 's',
-        animationDelay: n.delay + 's'
-      }"
-    ></div>
+      <div class="nebula-wave"
+        v-for="n in nebulaWaves" :key="'nw'+n.id"
+        :style="{
+          width: '300px', height: '300px',
+          '--wave-color': n.color, '--wave-dur': n.dur + 's',
+          animationDelay: n.delay + 's'
+        }"
+      ></div>
 
-    <!-- Flying dots -->
-    <div class="flying-dot"
-      v-for="d in flyingDots" :key="'fd'+d.id"
-      :style="{
-        '--dot-color': d.color,
-        '--fx': d.fx + 'px', '--fy': d.fy + 'px',
-        '--fly-dur': d.dur + 's',
-        animationDelay: d.delay + 's'
-      }"
-    ></div>
+      <div class="flying-dot"
+        v-for="d in flyingDots" :key="'fd'+d.id"
+        :style="{
+          '--dot-color': d.color,
+          '--fx': d.fx + 'px', '--fy': d.fy + 'px',
+          '--fly-dur': d.dur + 's',
+          animationDelay: d.delay + 's'
+        }"
+      ></div>
 
-    <!-- Distortion rings -->
-    <div class="distortion-ring"
-      v-for="dr in distortionRings" :key="'dr'+dr.id"
-      :style="{
-        width: dr.size + 'px', height: dr.size + 'px',
-        animationDelay: dr.delay + 's'
-      }"
-    ></div>
+      <div class="distortion-ring"
+        v-for="dr in distortionRings" :key="'dr'+dr.id"
+        :style="{
+          width: dr.size + 'px', height: dr.size + 'px',
+          animationDelay: dr.delay + 's'
+        }"
+      ></div>
+    </template>
 
-    <!-- Background stars -->
+    <!-- Background stars — always visible -->
     <div class="bg-star"
       v-for="s in bgStars" :key="'bs'+s.id"
       :style="{

@@ -12,7 +12,7 @@ const isHome = computed(() => route.name === 'home')
 </script>
 
 <template>
-  <StarBackground v-if="isHome" />
+  <StarBackground :full="isHome" />
   <div id="app-shell">
     <TheSidebar />
     <main class="main-area" :class="{ collapsed: app.sidebarCollapsed }">
