@@ -80,29 +80,16 @@ function isActive(name: string) {
       </div>
 
       <div class="profile-card">
-        <div class="profile-row">
-          <div class="profile-avatar">
-            <img v-if="profile.avatarUrl" :src="profile.avatarUrl" alt="" class="avatar-img" />
-            <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M18 20a6 6 0 0 0-12 0"/><circle cx="12" cy="10" r="4"/>
-            </svg>
-            <span class="avatar-dot"></span>
-          </div>
-          <div class="profile-info">
-            <div class="profile-name">{{ profile.nickname }}</div>
-            <div class="profile-addr">0x7a3F...8cB2</div>
-          </div>
+        <div class="profile-status">
+          <span class="status-dot"></span>
+          {{ i18n.t('sidebar.connected') }} MetaMask
         </div>
-        <div v-if="profile.quote" class="profile-quote">"{{ profile.quote }}"</div>
-        <div v-if="profile.tags.length" class="profile-tags">
-          <span v-for="t in profile.tags" :key="t.id" class="profile-tag">{{ t.label }}</span>
-        </div>
-        <div class="profile-stats">
-          <div class="pstat"><span class="pstat-n">42</span> {{ i18n.t('profile.posts') }}</div>
-          <div class="pstat-sep"></div>
-          <div class="pstat"><span class="pstat-n">18</span> {{ i18n.t('profile.nfts') }}</div>
-          <div class="pstat-sep"></div>
-          <div class="pstat"><span class="pstat-n">1.2K</span> {{ i18n.t('profile.readers') }}</div>
+        <div class="profile-addr">{{ app.walletAddress }}</div>
+        <div class="profile-pass">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          ChainLog Pass ✓
         </div>
       </div>
 
@@ -270,109 +257,37 @@ function isActive(name: string) {
   padding: 14px;
   margin-bottom: 16px;
 }
-.profile-row {
+.profile-status {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-muted);
   margin-bottom: 8px;
 }
-.profile-avatar {
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  position: relative;
-  box-shadow: 0 0 12px rgba(99, 179, 237, 0.2);
-  overflow: hidden;
-}
-.avatar-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: 50%;
-}
-.avatar-dot {
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  width: 9px;
-  height: 9px;
+.status-dot {
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: var(--accent-green);
-  border: 2px solid var(--bg-card);
   box-shadow: 0 0 6px var(--accent-green);
-}
-.profile-info {
-  min-width: 0;
-  overflow: hidden;
-}
-.profile-name {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
-  line-height: 1.3;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex-shrink: 0;
 }
 .profile-addr {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 13px;
   color: var(--accent-blue);
-  opacity: 0.8;
-}
-.profile-quote {
-  font-size: 11px;
-  color: var(--text-muted);
-  line-height: 1.5;
-  font-style: italic;
-  font-family: var(--font-display);
-  margin-bottom: 8px;
-}
-.profile-tags {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
   margin-bottom: 10px;
+  letter-spacing: 0.3px;
 }
-.profile-tag {
-  font-size: 9px;
-  padding: 2px 6px;
-  border-radius: var(--radius-full);
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-}
-.profile-stats {
-  border-top: 1px solid var(--border);
-  padding-top: 10px;
+.profile-pass {
   display: flex;
   align-items: center;
-  justify-content: center;
-}
-.pstat {
-  flex: 1;
-  text-align: center;
-  font-size: 10px;
+  gap: 5px;
+  font-size: 11px;
   color: var(--text-muted);
-  font-family: var(--font-mono);
-  white-space: nowrap;
-}
-.pstat-n {
-  font-weight: 700;
-  font-size: 13px;
-  color: var(--text-primary);
-  margin-right: 2px;
-}
-.pstat-sep {
-  width: 1px;
-  height: 16px;
-  background: var(--border);
-  flex-shrink: 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
 }
 
 /* ── Nav (展开态) ── */
