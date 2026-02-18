@@ -63,11 +63,12 @@ function isActive(name: string) {
       <div class="brand-bar">
         <div class="brand">
           <div class="brand-logo">
-            <Icon name="hexagon" :size="18" color="white" />
+            <img v-if="profile.avatarUrl" :src="profile.avatarUrl" alt="" class="brand-avatar-img" />
+            <Icon v-else name="hexagon" :size="18" color="white" />
           </div>
           <div class="brand-text">
-            <div class="brand-name">ChainLog</div>
-            <div class="brand-sub">WEB3 · BLOG · SOUL</div>
+            <div class="brand-name">{{ profile.nickname || 'ChainLog' }}</div>
+            <div class="brand-sub">{{ profile.quote || 'WEB3 · BLOG · SOUL' }}</div>
           </div>
         </div>
         <button class="collapse-btn" @click="app.toggleSidebar()" title="折叠侧边栏">
@@ -206,6 +207,42 @@ function isActive(name: string) {
   justify-content: center;
   flex-shrink: 0;
   box-shadow: 0 0 20px rgba(99, 179, 237, 0.3);
+  animation: logoSpin 12s linear infinite;
+  transition: transform 0.3s, box-shadow 0.3s, filter 0.3s;
+  overflow: hidden;
+  position: relative;
+}
+.brand-logo::after {
+  content: '';
+  position: absolute;
+  inset: -50%;
+  background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.35) 50%, transparent 60%);
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+.brand-logo:hover {
+  transform: scale(1.15);
+  box-shadow: 0 0 30px rgba(99, 179, 237, 0.5);
+  filter: brightness(1.2);
+}
+.brand-logo:hover::after {
+  opacity: 1;
+  animation: glare 0.6s ease-out;
+}
+.brand-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 10px;
+}
+@keyframes logoSpin {
+  from { rotate: 0deg; }
+  to { rotate: 360deg; }
+}
+@keyframes glare {
+  from { transform: translateX(-100%) rotate(35deg); }
+  to { transform: translateX(100%) rotate(35deg); }
 }
 .brand-text {
   overflow: hidden;

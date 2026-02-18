@@ -3,14 +3,30 @@ import { useRouter } from 'vue-router'
 import { computed } from 'vue'
 import Icon from '../components/icons/Icon.vue'
 import { useAppStore } from '../stores/app'
+import { useProfileStore } from '../stores/profile'
 import { useI18n } from '../stores/i18n'
 
 const router = useRouter()
 const app = useAppStore()
+const profile = useProfileStore()
 const i18n = useI18n()
 
 const heroTitle = computed(() => i18n.t('home.title'))
-const heroSub = computed(() => i18n.t('home.sub'))
+const heroSub = computed(() => profile.bio || i18n.t('home.sub'))
+
+const activeSocialLinks = computed(() => {
+  const icons: { key: string; value: string; svg: string }[] = []
+  const sl = profile.socialLinks
+  if (sl.twitter) icons.push({ key: 'twitter', value: sl.twitter, svg: 'M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z' })
+  if (sl.github) icons.push({ key: 'github', value: sl.github, svg: 'M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22' })
+  if (sl.telegram) icons.push({ key: 'telegram', value: sl.telegram, svg: 'M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z' })
+  if (sl.wechat) icons.push({ key: 'wechat', value: sl.wechat, svg: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z' })
+  if (sl.qq) icons.push({ key: 'qq', value: sl.qq, svg: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM8 9h.01M16 9h.01M8 13c1.5 2 6.5 2 8 0' })
+  if (sl.email) icons.push({ key: 'email', value: sl.email, svg: 'M2 6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6zm20 1l-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7' })
+  if (sl.mirror) icons.push({ key: 'mirror', value: sl.mirror, svg: 'M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z' })
+  if (sl.ens) icons.push({ key: 'ens', value: sl.ens, svg: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5' })
+  return icons
+})
 
 const posts = [
   {
@@ -111,6 +127,24 @@ const moments = [
           <div class="stat-item">
             <div class="stat-num">{{ app.stats.earnings }}</div>
             <div class="stat-label">{{ i18n.t('home.stat.earnings') }}</div>
+          </div>
+        </div>
+        <div v-if="profile.tags.length || activeSocialLinks.length" class="hero-profile-row">
+          <div v-if="profile.tags.length" class="hero-tags">
+            <span v-for="t in profile.tags" :key="t.id" class="hero-tag">{{ t.label }}</span>
+          </div>
+          <div v-if="activeSocialLinks.length" class="hero-socials">
+            <a
+              v-for="s in activeSocialLinks"
+              :key="s.key"
+              class="hero-social-icon"
+              :title="s.key"
+              href="javascript:;"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                <path :d="s.svg" />
+              </svg>
+            </a>
           </div>
         </div>
       </div>
@@ -306,6 +340,56 @@ const moments = [
   font-size: 11px;
   color: var(--text-muted);
   margin-top: 2px;
+}
+
+.hero-profile-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.hero-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.hero-tag {
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  background: rgba(99, 179, 237, 0.1);
+  border: 1px solid rgba(99, 179, 237, 0.2);
+  color: var(--accent-blue);
+  font-family: var(--font-mono);
+  letter-spacing: 0.3px;
+}
+.hero-socials {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+.hero-social-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+}
+.hero-social-icon:hover {
+  color: var(--accent-cyan);
+  border-color: var(--border-hover);
+  background: rgba(99,179,237,0.1);
+  transform: translateY(-1px);
 }
 
 .hero-nft {

@@ -19,6 +19,10 @@ export const useProfileStore = defineStore('profile', () => {
   const socialLinks = ref({
     twitter: '',
     github: '',
+    telegram: '',
+    wechat: '',
+    qq: '',
+    email: '',
     mirror: '',
     ens: '',
   })

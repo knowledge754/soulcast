@@ -164,8 +164,24 @@ function handleSave() {
               <input v-model="profile.socialLinks.twitter" class="setting-input" placeholder="Twitter / X 用户名" />
             </div>
             <div class="social-row">
-              <Icon name="link" :size="14" color="var(--text-muted)" class="social-icon-svg" />
+              <svg class="social-icon-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
               <input v-model="profile.socialLinks.github" class="setting-input" placeholder="GitHub 用户名" />
+            </div>
+            <div class="social-row">
+              <svg class="social-icon-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+              <input v-model="profile.socialLinks.telegram" class="setting-input" placeholder="Telegram 用户名" />
+            </div>
+            <div class="social-row">
+              <svg class="social-icon-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              <input v-model="profile.socialLinks.wechat" class="setting-input" placeholder="微信号" />
+            </div>
+            <div class="social-row">
+              <svg class="social-icon-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 9h.01M16 9h.01M8 13c1.5 2 6.5 2 8 0"/></svg>
+              <input v-model="profile.socialLinks.qq" class="setting-input" placeholder="QQ 号" />
+            </div>
+            <div class="social-row">
+              <svg class="social-icon-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+              <input v-model="profile.socialLinks.email" class="setting-input" placeholder="邮箱地址" />
             </div>
             <div class="social-row">
               <Icon name="edit" :size="14" color="var(--text-muted)" class="social-icon-svg" />
@@ -185,7 +201,7 @@ function handleSave() {
         </button>
       </div>
 
-      <!-- 右：预览 -->
+      <!-- 右：预览（对应侧边栏品牌区） -->
       <div class="settings-preview">
         <div class="preview-label">{{ i18n.t('settings.preview') }}</div>
         <div class="preview-card">
@@ -194,21 +210,9 @@ function handleSave() {
             <svg v-else width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
               <path d="M18 20a6 6 0 0 0-12 0"/><circle cx="12" cy="10" r="4"/>
             </svg>
-            <span class="preview-dot"></span>
           </div>
           <div class="preview-name">{{ profile.nickname || '未设置昵称' }}</div>
-          <div class="preview-addr">0x7a3F...8cB2</div>
-          <div class="preview-quote">"{{ profile.quote || '...' }}"</div>
-          <div v-if="profile.tags.length" class="preview-tags">
-            <span v-for="t in profile.tags" :key="t.id" class="preview-tag">{{ t.label }}</span>
-          </div>
-          <div class="preview-stats">
-            <div class="ps"><span class="ps-n">42</span> {{ i18n.t('profile.posts') }}</div>
-            <div class="ps-sep"></div>
-            <div class="ps"><span class="ps-n">18</span> {{ i18n.t('profile.nfts') }}</div>
-            <div class="ps-sep"></div>
-            <div class="ps"><span class="ps-n">1.2K</span> {{ i18n.t('profile.readers') }}</div>
-          </div>
+          <div class="preview-quote">{{ profile.quote || '一句话签名...' }}</div>
         </div>
       </div>
     </div>
@@ -519,76 +523,16 @@ function handleSave() {
   height: 100%;
   object-fit: cover;
 }
-.preview-dot {
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--accent-green);
-  border: 2px solid var(--bg-card);
-}
 .preview-name {
   font-size: 14px;
   font-weight: 600;
   margin-bottom: 3px;
 }
-.preview-addr {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--accent-blue);
-  margin-bottom: 8px;
-}
 .preview-quote {
   font-size: 11px;
   color: var(--text-muted);
-  font-style: italic;
   font-family: var(--font-display);
   line-height: 1.5;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 8px;
-}
-.preview-tags {
-  display: flex;
-  justify-content: center;
-  gap: 4px;
-  flex-wrap: wrap;
-  margin-bottom: 10px;
-}
-.preview-tag {
-  font-size: 9px;
-  padding: 2px 6px;
-  border-radius: var(--radius-full);
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-}
-.preview-stats {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding-top: 10px;
-  border-top: 1px solid var(--border);
-}
-.ps {
-  flex: 1;
-  text-align: center;
-  font-size: 9px;
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-}
-.ps-n {
-  font-weight: 700;
-  font-size: 12px;
-  color: var(--text-primary);
-  margin-right: 2px;
-}
-.ps-sep {
-  width: 1px;
-  height: 14px;
-  background: var(--border);
 }
 
 /* ── Toast ── */
