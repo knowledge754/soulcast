@@ -387,78 +387,152 @@ export function useWallet() {
     ]
   })
 
+  /**
+   * 验证一个命名空间 provider 不是被 OKX 劫持的假冒品。
+   * 检查：1) 不能是 window.ethereum 的同一引用（如果 OKX 已劫持）
+   *       2) 不能是 window.okxwallet 的同一引用
+   *       3) 自身不能带有 OKX 标志
+   */
+  function isGenuineNamespaceProvider(p: EthereumProvider, label: string): boolean {
+    if (p.isOKExWallet || p.isOkxWallet) {
+      console.warn(`[ChainLog] ${label} 带有 OKX flag → 被 OKX 劫持`)
+      return false
+    }
+    if (window.okxwallet && p === window.okxwallet) {
+      console.warn(`[ChainLog] ${label} === window.okxwallet → 被 OKX 劫持`)
+      return false
+    }
+    if (isOKXPresent() && window.ethereum && p === window.ethereum) {
+      console.warn(`[ChainLog] ${label} === window.ethereum（已被 OKX 劫持）→ 跳过`)
+      return false
+    }
+    return true
+  }
+
   /* ══════════ 获取特定 Provider ══════════ */
   function getSpecificProvider(walletId: string): EthereumProvider | null {
     const eth = window.ethereum
     const okxHijack = isOKXPresent()
 
+    console.log(`[ChainLog] 查找 ${walletId} provider... (OKX劫持: ${okxHijack})`)
+
     // ① EIP-6963 — 最可靠，钱包用 RDNS 自证身份
     const eip6963 = findEIP6963Provider(walletId)
-    if (eip6963) return eip6963
-
-    // ② 独立全局注入 — 各钱包的专属命名空间，不受 OKX 劫持影响
-    if (walletId === 'okx' && window.okxwallet) return window.okxwallet
-    if (walletId === 'tokenpocket' && window.tokenpocket?.ethereum) return window.tokenpocket.ethereum
-    if (walletId === 'binance' && window.BinanceChain) return window.BinanceChain
-    if (walletId === 'trust' && window.trustwallet) return window.trustwallet
-    if (walletId === 'coinbase' && window.coinbaseWalletExtension) return window.coinbaseWalletExtension
-    if (walletId === 'onekey') {
-      const ok = window.$onekey?.ethereum || window.onekey?.ethereum
-      if (ok) return ok
+    if (eip6963) {
+      console.log(`[ChainLog] ✅ ${walletId} → EIP-6963 命中`)
+      return eip6963
     }
 
-    if (!eth) return null
+    // ② 独立全局注入 — 验证不是 OKX 的伪装
+    if (walletId === 'okx' && window.okxwallet) {
+      console.log(`[ChainLog] ✅ ${walletId} → window.okxwallet`)
+      return window.okxwallet
+    }
+    if (walletId === 'tokenpocket' && window.tokenpocket?.ethereum) {
+      if (isGenuineNamespaceProvider(window.tokenpocket.ethereum, 'window.tokenpocket.ethereum')) {
+        console.log(`[ChainLog] ✅ ${walletId} → window.tokenpocket.ethereum`)
+        return window.tokenpocket.ethereum
+      }
+    }
+    if (walletId === 'binance' && window.BinanceChain) {
+      if (isGenuineNamespaceProvider(window.BinanceChain, 'window.BinanceChain')) {
+        console.log(`[ChainLog] ✅ ${walletId} → window.BinanceChain`)
+        return window.BinanceChain
+      }
+    }
+    if (walletId === 'trust' && window.trustwallet) {
+      if (isGenuineNamespaceProvider(window.trustwallet, 'window.trustwallet')) {
+        console.log(`[ChainLog] ✅ ${walletId} → window.trustwallet`)
+        return window.trustwallet
+      }
+    }
+    if (walletId === 'coinbase' && window.coinbaseWalletExtension) {
+      if (isGenuineNamespaceProvider(window.coinbaseWalletExtension, 'window.coinbaseWalletExtension')) {
+        console.log(`[ChainLog] ✅ ${walletId} → window.coinbaseWalletExtension`)
+        return window.coinbaseWalletExtension
+      }
+    }
+    if (walletId === 'onekey') {
+      const ok = window.$onekey?.ethereum || window.onekey?.ethereum
+      if (ok && isGenuineNamespaceProvider(ok, 'window.onekey.ethereum')) {
+        console.log(`[ChainLog] ✅ ${walletId} → window.onekey.ethereum`)
+        return ok
+      }
+    }
 
-    // ③ providers 数组 — 用 _metamask 等内部属性验证真实性
+    if (!eth) {
+      console.log(`[ChainLog] ❌ ${walletId} → window.ethereum 不存在`)
+      return null
+    }
+
+    // ③ providers 数组 — 严格校验 + 排除 OKX 伪装
     if (eth.providers && Array.isArray(eth.providers)) {
-      for (const p of eth.providers) {
+      console.log(`[ChainLog] 扫描 providers 数组 (${eth.providers.length} 个)...`)
+      for (let i = 0; i < eth.providers.length; i++) {
+        const p = eth.providers[i]
+        // 跳过所有 OKX 的 provider（除非就是在找 OKX）
+        if (walletId !== 'okx' && (p.isOKExWallet || p.isOkxWallet || p === window.okxwallet)) continue
+
         switch (walletId) {
           case 'metamask':
-            // 真正的 MetaMask 有 _metamask 内部属性
-            if (p.isMetaMask && (p as EthereumProvider)._metamask && !p.isOKExWallet && !p.isOkxWallet) return p
+            if (p.isMetaMask && (p as EthereumProvider)._metamask) {
+              console.log(`[ChainLog] ✅ ${walletId} → providers[${i}] (有 _metamask)`)
+              return p
+            }
             break
           case 'tokenpocket':
-            if (p.isTokenPocket && !p.isOKExWallet && !p.isOkxWallet) return p
+            if (p.isTokenPocket) {
+              console.log(`[ChainLog] ✅ ${walletId} → providers[${i}] (isTokenPocket)`)
+              return p
+            }
             break
           case 'coinbase':
-            if (p.isCoinbaseWallet) return p
+            if (p.isCoinbaseWallet) { console.log(`[ChainLog] ✅ ${walletId} → providers[${i}]`); return p }
             break
           case 'imtoken':
-            if (p.isImToken) return p
+            if (p.isImToken) { console.log(`[ChainLog] ✅ ${walletId} → providers[${i}]`); return p }
             break
           case 'onekey':
-            if (p.isOneKey) return p
+            if (p.isOneKey) { console.log(`[ChainLog] ✅ ${walletId} → providers[${i}]`); return p }
             break
           case 'trust':
-            if (p.isTrust) return p
+            if (p.isTrust) { console.log(`[ChainLog] ✅ ${walletId} → providers[${i}]`); return p }
             break
           case 'okx':
-            if (p.isOKExWallet || p.isOkxWallet) return p
+            if (p.isOKExWallet || p.isOkxWallet) { console.log(`[ChainLog] ✅ ${walletId} → providers[${i}]`); return p }
             break
           case 'binance':
-            if (p.isBinance) return p
+            if (p.isBinance) { console.log(`[ChainLog] ✅ ${walletId} → providers[${i}]`); return p }
             break
           case 'huobi':
-            if (p.isHuobiWallet) return p
+            if (p.isHuobiWallet) { console.log(`[ChainLog] ✅ ${walletId} → providers[${i}]`); return p }
             break
         }
       }
     }
 
-    // ④ 单 provider — 仅当 OKX 未劫持时才信任 window.ethereum 上的 flag
+    // ④ 单 provider — 仅当 OKX 未劫持时才信任 window.ethereum
     if (!okxHijack) {
-      if (walletId === 'metamask' && eth.isMetaMask && !eth.isTokenPocket) return eth
-      if (walletId === 'tokenpocket' && eth.isTokenPocket && !eth.isMetaMask) return eth
-      if (walletId === 'trust' && eth.isTrust) return eth
-      if (walletId === 'binance' && eth.isBinance) return eth
-      if (walletId === 'imtoken' && eth.isImToken) return eth
-      if (walletId === 'coinbase' && eth.isCoinbaseWallet) return eth
-      if (walletId === 'huobi' && eth.isHuobiWallet) return eth
-      if (walletId === 'onekey' && eth.isOneKey) return eth
+      let matched = false
+      if (walletId === 'metamask' && eth.isMetaMask && !eth.isTokenPocket) matched = true
+      if (walletId === 'tokenpocket' && eth.isTokenPocket) matched = true
+      if (walletId === 'trust' && eth.isTrust) matched = true
+      if (walletId === 'binance' && eth.isBinance) matched = true
+      if (walletId === 'imtoken' && eth.isImToken) matched = true
+      if (walletId === 'coinbase' && eth.isCoinbaseWallet) matched = true
+      if (walletId === 'huobi' && eth.isHuobiWallet) matched = true
+      if (walletId === 'onekey' && eth.isOneKey) matched = true
+      if (matched) {
+        console.log(`[ChainLog] ✅ ${walletId} → window.ethereum (无 OKX 劫持)`)
+        return eth
+      }
     }
 
     // OKX 本身可以用 window.ethereum
-    if (walletId === 'okx' && (eth.isOKExWallet || eth.isOkxWallet)) return eth
+    if (walletId === 'okx' && (eth.isOKExWallet || eth.isOkxWallet)) {
+      console.log(`[ChainLog] ✅ okx → window.ethereum`)
+      return eth
+    }
 
     // ⑤ 硬件钱包通过 MetaMask 桥接
     if (walletId === 'ledger' || walletId === 'trezor') {
@@ -470,7 +544,7 @@ export function useWallet() {
       return mmFromProviders || null
     }
 
-    // ⑥ 找不到 → 返回 null，绝不回退到通用 provider
+    console.log(`[ChainLog] ❌ ${walletId} → 未找到匹配的 provider`)
     return null
   }
 
@@ -493,6 +567,17 @@ export function useWallet() {
         connecting.value = false
         return
       }
+
+      console.log(`[ChainLog] 即将调用 eth_requestAccounts，provider 信息:`, {
+        isMetaMask: !!provider.isMetaMask,
+        isOKExWallet: !!provider.isOKExWallet,
+        isOkxWallet: !!provider.isOkxWallet,
+        isTokenPocket: !!provider.isTokenPocket,
+        _metamask: !!(provider as EthereumProvider)._metamask,
+        '===okxwallet': provider === window.okxwallet,
+        '===ethereum': provider === window.ethereum,
+        '===tp.ethereum': provider === window.tokenpocket?.ethereum,
+      })
 
       currentProvider = provider
 
