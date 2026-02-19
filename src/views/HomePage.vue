@@ -354,12 +354,14 @@ const moments = [
 
 .hero-profile-row {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
   margin-top: 16px;
   padding-top: 14px;
   border-top: 1px solid var(--border);
+  border-top-width: 1px;
+  max-width: 360px;
 }
 .hero-tags {
   display: flex;
@@ -402,8 +404,8 @@ const moments = [
 /* ── Hero Video ── */
 .hero-media {
   flex-shrink: 0;
-  width: 240px;
-  height: 180px;
+  width: 300px;
+  height: 220px;
   border-radius: 14px;
   overflow: hidden;
   position: relative;

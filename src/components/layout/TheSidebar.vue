@@ -201,7 +201,7 @@ function isActive(name: string) {
   width: 36px;
   height: 36px;
   background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
-  border-radius: 10px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -234,7 +234,7 @@ function isActive(name: string) {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: 10px;
+  border-radius: 50%;
 }
 @keyframes logoSpin {
   from { rotate: 0deg; }
