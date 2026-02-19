@@ -24,6 +24,7 @@ export interface WalletProvider {
   description: string
   downloadUrl: string
   detected: boolean
+  eip6963Icon?: string
 }
 
 export interface WalletState {
@@ -172,6 +173,15 @@ function isDetectedViaEIP6963(walletId: string): boolean {
   return false
 }
 
+function getEIP6963Icon(walletId: string): string | undefined {
+  for (const detail of eip6963Providers.value) {
+    if (RDNS_TO_WALLET[detail.info.rdns] === walletId && detail.info.icon) {
+      return detail.info.icon
+    }
+  }
+  return undefined
+}
+
 /* ══════════ OKX 劫持检测 ══════════ */
 function isOKXPresent(): boolean {
   return !!window.okxwallet
@@ -285,115 +295,94 @@ export function useWallet() {
 
     return [
       {
-        id: 'metamask',
-        name: 'MetaMask',
-        icon: 'metamask',
+        id: 'metamask', name: 'MetaMask', icon: 'metamask',
         color: 'linear-gradient(135deg, #E2761B, #CD6116)',
         description: '最流行的浏览器钱包插件',
         downloadUrl: 'https://metamask.io/download/',
         detected: isDetectedViaEIP6963('metamask')
           || !!(eth?.providers?.some(p => p.isMetaMask && (p as EthereumProvider)._metamask))
-          || (!okxHijack && !!eth?.isMetaMask && !!(eth as EthereumProvider)._metamask)
+          || (!okxHijack && !!eth?.isMetaMask && !!(eth as EthereumProvider)._metamask),
+        eip6963Icon: getEIP6963Icon('metamask'),
       },
       {
-        id: 'tokenpocket',
-        name: 'TokenPocket',
-        icon: 'tokenpocket',
+        id: 'tokenpocket', name: 'TokenPocket', icon: 'tokenpocket',
         color: 'linear-gradient(135deg, #2980FE, #1A6AFF)',
         description: '多链数字资产钱包',
         downloadUrl: 'https://www.tokenpocket.pro/',
-        detected: isDetectedViaEIP6963('tokenpocket')
-          || !!window.tokenpocket?.ethereum
+        detected: isDetectedViaEIP6963('tokenpocket') || !!window.tokenpocket?.ethereum,
+        eip6963Icon: getEIP6963Icon('tokenpocket'),
       },
       {
-        id: 'okx',
-        name: 'OKX Wallet',
-        icon: 'okx',
+        id: 'okx', name: 'OKX Wallet', icon: 'okx',
         color: 'linear-gradient(135deg, #FFFFFF, #C4C4C4)',
         description: 'OKX 多链钱包',
         downloadUrl: 'https://www.okx.com/web3',
-        detected: isDetectedViaEIP6963('okx')
-          || !!window.okxwallet
-          || !!eth?.isOKExWallet
-          || !!eth?.isOkxWallet
+        detected: isDetectedViaEIP6963('okx') || !!window.okxwallet || !!eth?.isOKExWallet || !!eth?.isOkxWallet,
+        eip6963Icon: getEIP6963Icon('okx'),
       },
       {
-        id: 'binance',
-        name: 'Binance Web3',
-        icon: 'binance',
+        id: 'binance', name: 'Binance Web3', icon: 'binance',
         color: 'linear-gradient(135deg, #F0B90B, #F8D12F)',
         description: '币安官方 Web3 钱包',
         downloadUrl: 'https://www.binance.com/web3wallet',
-        detected: isDetectedViaEIP6963('binance')
-          || !!window.BinanceChain
+        detected: isDetectedViaEIP6963('binance') || !!window.BinanceChain,
+        eip6963Icon: getEIP6963Icon('binance'),
       },
       {
-        id: 'trust',
-        name: 'Trust Wallet',
-        icon: 'trust',
+        id: 'trust', name: 'Trust Wallet', icon: 'trust',
         color: 'linear-gradient(135deg, #3375BB, #0500FF)',
         description: '安全可信赖的多链钱包',
         downloadUrl: 'https://trustwallet.com/',
-        detected: isDetectedViaEIP6963('trust')
-          || !!window.trustwallet
+        detected: isDetectedViaEIP6963('trust') || !!window.trustwallet,
+        eip6963Icon: getEIP6963Icon('trust'),
       },
       {
-        id: 'imtoken',
-        name: 'imToken',
-        icon: 'imtoken',
+        id: 'imtoken', name: 'imToken', icon: 'imtoken',
         color: 'linear-gradient(135deg, #11C4D1, #0062AD)',
         description: '去中心化数字钱包',
         downloadUrl: 'https://token.im/',
-        detected: isDetectedViaEIP6963('imtoken')
-          || !!window.imToken
+        detected: isDetectedViaEIP6963('imtoken') || !!window.imToken,
+        eip6963Icon: getEIP6963Icon('imtoken'),
       },
       {
-        id: 'coinbase',
-        name: 'Coinbase Wallet',
-        icon: 'coinbase',
+        id: 'coinbase', name: 'Coinbase Wallet', icon: 'coinbase',
         color: 'linear-gradient(135deg, #0052FF, #0039B3)',
         description: 'Coinbase 官方钱包',
         downloadUrl: 'https://www.coinbase.com/wallet',
-        detected: isDetectedViaEIP6963('coinbase')
-          || !!window.coinbaseWalletExtension
+        detected: isDetectedViaEIP6963('coinbase') || !!window.coinbaseWalletExtension,
+        eip6963Icon: getEIP6963Icon('coinbase'),
       },
       {
-        id: 'huobi',
-        name: '火币钱包',
-        icon: 'huobi',
+        id: 'huobi', name: '火币钱包', icon: 'huobi',
         color: 'linear-gradient(135deg, #2DAF68, #1B8A4E)',
         description: '火币生态链官方钱包',
         downloadUrl: 'https://www.htx.com/wallet',
-        detected: isDetectedViaEIP6963('huobi')
+        detected: isDetectedViaEIP6963('huobi'),
+        eip6963Icon: getEIP6963Icon('huobi'),
       },
       {
-        id: 'onekey',
-        name: 'OneKey',
-        icon: 'onekey',
+        id: 'onekey', name: 'OneKey', icon: 'onekey',
         color: 'linear-gradient(135deg, #00B812, #009A0F)',
         description: '开源硬件钱包',
         downloadUrl: 'https://onekey.so/',
-        detected: isDetectedViaEIP6963('onekey')
-          || !!window.onekey?.ethereum
-          || !!window.$onekey?.ethereum
+        detected: isDetectedViaEIP6963('onekey') || !!window.onekey?.ethereum || !!window.$onekey?.ethereum,
+        eip6963Icon: getEIP6963Icon('onekey'),
       },
       {
-        id: 'ledger',
-        name: 'Ledger',
-        icon: 'ledger',
+        id: 'ledger', name: 'Ledger', icon: 'ledger',
         color: 'linear-gradient(135deg, #000000, #333333)',
         description: '硬件冷钱包，需通过 Ledger Live 连接',
         downloadUrl: 'https://www.ledger.com/',
-        detected: false
+        detected: false,
+        eip6963Icon: getEIP6963Icon('ledger'),
       },
       {
-        id: 'trezor',
-        name: 'Trezor',
-        icon: 'trezor',
+        id: 'trezor', name: 'Trezor', icon: 'trezor',
         color: 'linear-gradient(135deg, #001E2B, #00854D)',
         description: '硬件冷钱包，需通过 Trezor Suite 连接',
         downloadUrl: 'https://trezor.io/',
-        detected: false
+        detected: false,
+        eip6963Icon: getEIP6963Icon('trezor'),
       }
     ]
   })
@@ -579,6 +568,7 @@ export function useWallet() {
   async function connectWallet(walletId: string) {
     connecting.value = true
     error.value = ''
+    let requestStart = Date.now()
 
     try {
       const provider = getSpecificProvider(walletId)
@@ -608,6 +598,7 @@ export function useWallet() {
 
       currentProvider = provider
 
+      requestStart = Date.now()
       const accounts = await provider.request({
         method: 'eth_requestAccounts'
       }) as string[]
@@ -643,9 +634,16 @@ export function useWallet() {
       showModal.value = false
       setupListeners(provider)
     } catch (err: unknown) {
+      const elapsed = Date.now() - requestStart
       const e = err as { code?: number; message?: string }
       if (e.code === 4001) {
-        error.value = '用户取消了连接'
+        if (elapsed < 1500) {
+          const wallet = walletList.value.find(w => w.id === walletId)
+          error.value = `${wallet?.name || walletId} 连接被自动拒绝（可能被其他钱包扩展劫持），请在浏览器扩展中禁用冲突的钱包后重试`
+          console.warn(`[ChainLog] ⚠️ eth_requestAccounts 在 ${elapsed}ms 内被拒绝（<1.5s），疑似 provider 被劫持`)
+        } else {
+          error.value = '用户取消了连接'
+        }
       } else {
         error.value = e.message || '连接失败，请重试'
       }

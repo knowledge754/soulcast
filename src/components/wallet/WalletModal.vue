@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import Icon from '../icons/Icon.vue'
 import type { WalletProvider } from '../../composables/useWallet'
+import { walletIcons } from '../../assets/wallet-icons'
 
 defineProps<{
   visible: boolean
@@ -23,55 +24,8 @@ function handleOverlayClick(e: MouseEvent) {
   }
 }
 
-const walletLogos: Record<string, string> = {
-  metamask:
-    `<path d="M20.5 4.5l-8 4.8-1.5-3.3z" fill="none" stroke-width="1.5"/>` +
-    `<path d="M3.5 4.5l8 4.8-6.5 1.5z" fill="none" stroke-width="1.5"/>` +
-    `<path d="M17.5 16.5l-2 4.5-3.5-1 -3.5 1-2-4.5" fill="none" stroke-width="1.5"/>` +
-    `<path d="M3.5 4.5L5 11l-1.5 5 4 1.5" fill="none" stroke-width="1.5"/>` +
-    `<path d="M20.5 4.5L19 11l1.5 5-4 1.5" fill="none" stroke-width="1.5"/>` +
-    `<path d="M5 11h14" fill="none" stroke-width="1.5"/>`,
-  tokenpocket:
-    `<rect x="4" y="3" width="16" height="18" rx="3" fill="none" stroke-width="1.5"/>` +
-    `<circle cx="12" cy="11" r="4" fill="none" stroke-width="1.5"/>` +
-    `<path d="M12 7v8" stroke-width="1.5"/>` +
-    `<path d="M8 11h8" stroke-width="1.5"/>` +
-    `<path d="M8 18h8" stroke-width="1.2"/>`,
-  binance:
-    `<path d="M12 3l3 3-3 3-3-3z" fill="none" stroke-width="1.5"/>` +
-    `<path d="M5 10l3 3-3 3-3-3z" fill="none" stroke-width="1.5"/>` +
-    `<path d="M19 10l3 3-3 3-3-3z" fill="none" stroke-width="1.5"/>` +
-    `<path d="M12 17l3 3-3 3-3-3z" fill="none" stroke-width="1.5"/>` +
-    `<path d="M12 10l3 3-3 3-3-3z" fill="none" stroke-width="1.5"/>`,
-  okx:
-    `<rect x="3" y="3" width="7" height="7" rx="1.5" fill="none" stroke-width="1.5"/>` +
-    `<rect x="14" y="3" width="7" height="7" rx="1.5" fill="none" stroke-width="1.5"/>` +
-    `<rect x="3" y="14" width="7" height="7" rx="1.5" fill="none" stroke-width="1.5"/>` +
-    `<rect x="14" y="14" width="7" height="7" rx="1.5" fill="none" stroke-width="1.5"/>`,
-  trust:
-    `<path d="M12 3C7 3 4 6 4 6v6c0 5 8 9 8 9s8-4 8-9V6s-3-3-8-3z" fill="none" stroke-width="1.5"/>` +
-    `<path d="M9 12l2 2 4-4" fill="none" stroke-width="1.75"/>`,
-  coinbase:
-    `<circle cx="12" cy="12" r="9" fill="none" stroke-width="1.5"/>` +
-    `<rect x="8.5" y="8.5" width="7" height="7" rx="1.5" fill="none" stroke-width="1.5"/>`,
-  imtoken:
-    `<circle cx="12" cy="12" r="9" fill="none" stroke-width="1.5"/>` +
-    `<path d="M8 12.5l3 3 5-5" fill="none" stroke-width="1.75"/>`,
-  huobi:
-    `<path d="M12 3c-2 3-5 5-5 8a5 5 0 0 0 10 0c0-3-3-5-5-8z" fill="none" stroke-width="1.5"/>` +
-    `<path d="M12 14a2 2 0 0 1-2-2c0-1 1-2 2-3" fill="none" stroke-width="1.5"/>`,
-  onekey:
-    `<rect x="4" y="2" width="16" height="20" rx="3" fill="none" stroke-width="1.5"/>` +
-    `<circle cx="12" cy="10" r="3" fill="none" stroke-width="1.5"/>` +
-    `<line x1="12" y1="16" x2="12" y2="18" stroke-width="2" stroke-linecap="round"/>`,
-  ledger:
-    `<rect x="3" y="6" width="18" height="12" rx="2" fill="none" stroke-width="1.5"/>` +
-    `<path d="M3 14h8v4" fill="none" stroke-width="1.5"/>` +
-    `<path d="M13 6v4h8" fill="none" stroke-width="1.5"/>`,
-  trezor:
-    `<path d="M7 10V7a5 5 0 0 1 10 0v3" fill="none" stroke-width="1.5"/>` +
-    `<rect x="5" y="10" width="14" height="11" rx="2" fill="none" stroke-width="1.5"/>` +
-    `<circle cx="12" cy="15.5" r="1.5" fill="none" stroke-width="1.5"/>`,
+function getWalletIcon(w: WalletProvider): string {
+  return w.eip6963Icon || walletIcons[w.id] || walletIcons.metamask
 }
 </script>
 
@@ -133,10 +87,8 @@ const walletLogos: Record<string, string> = {
                 :disabled="connecting"
                 @click="emit('connect', w.id)"
               >
-                <div class="wallet-logo" :style="{ background: w.color }">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
-                    stroke="white" stroke-width="1.75" stroke-linecap="round"
-                    stroke-linejoin="round" v-html="walletLogos[w.icon] || ''" />
+                <div class="wallet-logo">
+                  <img :src="getWalletIcon(w)" :alt="w.name" class="wallet-logo-img" />
                 </div>
                 <div class="wallet-info">
                   <div class="wallet-name">{{ w.name }}</div>
@@ -365,6 +317,13 @@ const walletLogos: Record<string, string> = {
   justify-content: center;
   flex-shrink: 0;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+.wallet-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 12px;
 }
 .wallet-info {
   flex: 1;
