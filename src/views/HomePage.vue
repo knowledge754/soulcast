@@ -381,6 +381,7 @@ const moments = [
 .hero-socials {
   display: flex;
   gap: 2px;
+  margin-top: 4px;
 }
 .hero-social-btn {
   width: 24px;
@@ -404,8 +405,8 @@ const moments = [
 /* ── Hero Video ── */
 .hero-media {
   flex-shrink: 0;
-  width: 300px;
-  height: 220px;
+  width: 477px;
+  height: 339px;
   border-radius: 14px;
   overflow: hidden;
   position: relative;
