@@ -8,6 +8,7 @@ const props = defineProps<{
   wallets: WalletProvider[]
   connecting: boolean
   error: string
+  installUrl?: string
   connectedAddress?: string
   connectedProvider?: string
 }>()
@@ -123,7 +124,15 @@ const walletLogos: Record<string, string> = {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
               <circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>
             </svg>
-            {{ error }}
+            <span class="error-text">{{ error }}</span>
+            <a v-if="installUrl" :href="installUrl" target="_blank" rel="noopener" class="install-link" @click.stop>
+              前往安装
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                <polyline points="15 3 21 3 21 9"/>
+                <line x1="10" x2="21" y1="14" y2="3"/>
+              </svg>
+            </a>
           </div>
 
           <!-- Detected Wallets -->
@@ -345,6 +354,34 @@ const walletLogos: Record<string, string> = {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
+}
+.modal-error > svg {
+  flex-shrink: 0;
+}
+.error-text {
+  flex: 1;
+  min-width: 0;
+}
+.install-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  background: rgba(99, 179, 237, 0.12);
+  border: 1px solid rgba(99, 179, 237, 0.25);
+  color: var(--accent-blue);
+  font-size: 11px;
+  font-family: var(--font-body);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: all 0.2s;
+  margin-left: auto;
+}
+.install-link:hover {
+  background: rgba(99, 179, 237, 0.2);
+  border-color: rgba(99, 179, 237, 0.4);
 }
 
 /* ── Wallet Section ── */

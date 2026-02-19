@@ -267,6 +267,7 @@ function closeDropdown() {
     :wallets="wallet.walletList.value"
     :connecting="wallet.connecting.value"
     :error="wallet.error.value"
+    :install-url="wallet.errorInstallUrl.value"
     :connected-address="wallet.state.value.connected ? wallet.state.value.address : undefined"
     :connected-provider="wallet.state.value.connected ? wallet.state.value.providerName : undefined"
     @close="wallet.closeModal()"
