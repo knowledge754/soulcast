@@ -59,6 +59,24 @@ const walletLogos: Record<string, string> = {
   coinbase:
     `<circle cx="12" cy="12" r="9" fill="none" stroke-width="1.5"/>` +
     `<rect x="8.5" y="8.5" width="7" height="7" rx="1.5" fill="none" stroke-width="1.5"/>`,
+  imtoken:
+    `<circle cx="12" cy="12" r="9" fill="none" stroke-width="1.5"/>` +
+    `<path d="M8 12.5l3 3 5-5" fill="none" stroke-width="1.75"/>`,
+  huobi:
+    `<path d="M12 3c-2 3-5 5-5 8a5 5 0 0 0 10 0c0-3-3-5-5-8z" fill="none" stroke-width="1.5"/>` +
+    `<path d="M12 14a2 2 0 0 1-2-2c0-1 1-2 2-3" fill="none" stroke-width="1.5"/>`,
+  onekey:
+    `<rect x="4" y="2" width="16" height="20" rx="3" fill="none" stroke-width="1.5"/>` +
+    `<circle cx="12" cy="10" r="3" fill="none" stroke-width="1.5"/>` +
+    `<line x1="12" y1="16" x2="12" y2="18" stroke-width="2" stroke-linecap="round"/>`,
+  ledger:
+    `<rect x="3" y="6" width="18" height="12" rx="2" fill="none" stroke-width="1.5"/>` +
+    `<path d="M3 14h8v4" fill="none" stroke-width="1.5"/>` +
+    `<path d="M13 6v4h8" fill="none" stroke-width="1.5"/>`,
+  trezor:
+    `<path d="M7 10V7a5 5 0 0 1 10 0v3" fill="none" stroke-width="1.5"/>` +
+    `<rect x="5" y="10" width="14" height="11" rx="2" fill="none" stroke-width="1.5"/>` +
+    `<circle cx="12" cy="15.5" r="1.5" fill="none" stroke-width="1.5"/>`,
 }
 </script>
 

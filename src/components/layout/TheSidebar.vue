@@ -66,7 +66,7 @@ function isActive(name: string) {
             <img v-if="profile.avatarUrl" :src="profile.avatarUrl" alt="" class="brand-avatar-img" />
             <Icon v-else name="hexagon" :size="18" color="white" />
           </div>
-          <div class="brand-text">
+          <div class="brand-text" @click="router.push({ name: 'home' })" style="cursor:pointer" title="回到首页">
             <div class="brand-name">{{ profile.nickname || 'ChainLog' }}</div>
             <div class="brand-sub">{{ profile.quote || 'WEB3 · BLOG · SOUL' }}</div>
           </div>
@@ -80,18 +80,29 @@ function isActive(name: string) {
         </button>
       </div>
 
-      <div class="profile-card">
-        <div class="profile-status">
-          <span class="status-dot"></span>
-          {{ i18n.t('sidebar.connected') }} MetaMask
-        </div>
-        <div class="profile-addr">{{ app.walletAddress }}</div>
-        <div class="profile-pass">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-          </svg>
-          ChainLog Pass ✓
-        </div>
+      <div class="profile-card" @click="!app.walletConnected && (app.showWalletModal = true)" :style="{ cursor: app.walletConnected ? 'default' : 'pointer' }">
+        <template v-if="app.walletConnected">
+          <div class="profile-status">
+            <span class="status-dot"></span>
+            {{ i18n.t('sidebar.connected') }} {{ app.walletProvider }}
+          </div>
+          <div class="profile-addr">{{ app.walletAddress }}</div>
+          <div class="profile-pass">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+            ChainLog Pass ✓
+          </div>
+        </template>
+        <template v-else>
+          <button class="connect-wallet-btn" @click.stop="app.showWalletModal = true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2.5"/>
+              <path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>
+            </svg>
+            连接钱包
+          </button>
+        </template>
       </div>
 
       <nav class="nav">
@@ -316,6 +327,35 @@ function isActive(name: string) {
   color: var(--accent-blue);
   margin-bottom: 10px;
   letter-spacing: 0.3px;
+}
+.connect-wallet-btn {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 99px;
+  border: none;
+  background: linear-gradient(135deg, #7c3aed, #2563eb, #0891b2);
+  background-size: 200% 200%;
+  animation: walletBtnShift 3s ease infinite;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.3s;
+  font-family: inherit;
+  box-shadow: 0 4px 16px rgba(99,58,237,0.25);
+}
+.connect-wallet-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgba(99,58,237,0.4);
+}
+@keyframes walletBtnShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 .profile-pass {
   display: flex;

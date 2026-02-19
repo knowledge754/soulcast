@@ -3,7 +3,8 @@
  * 支持 MetaMask、TokenPocket、Binance Web3 Wallet、OKX Wallet 等
  * 使用原生 EIP-1193 provider API
  */
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useAppStore } from '../stores/app'
 
 /* ── 类型定义 ── */
 export interface WalletProvider {
@@ -50,6 +51,9 @@ interface EthereumProvider {
   isOkxWallet?: boolean
   isTrust?: boolean
   isCoinbaseWallet?: boolean
+  isImToken?: boolean
+  isOneKey?: boolean
+  isHuobiWallet?: boolean
   request: (args: { method: string; params?: unknown[] }) => Promise<unknown>
   on: (event: string, handler: (...args: unknown[]) => void) => void
   removeListener: (event: string, handler: (...args: unknown[]) => void) => void
@@ -62,6 +66,9 @@ declare global {
     okxwallet?: EthereumProvider
     tokenpocket?: { ethereum?: EthereumProvider }
     BinanceChain?: EthereumProvider
+    imToken?: boolean
+    onekey?: { ethereum?: EthereumProvider }
+    $onekey?: { ethereum?: EthereumProvider }
   }
 }
 
@@ -91,6 +98,8 @@ async function getBalance(provider: EthereumProvider, address: string): Promise<
 
 /* ── Composable ── */
 export function useWallet() {
+  const appStore = useAppStore()
+
   const state = ref<WalletState>({
     connected: false,
     address: '',
@@ -101,7 +110,10 @@ export function useWallet() {
     providerName: ''
   })
 
-  const showModal = ref(false)
+  const showModal = computed({
+    get: () => appStore.showWalletModal,
+    set: (v: boolean) => { appStore.showWalletModal = v }
+  })
   const connecting = ref(false)
   const error = ref('')
   let currentProvider: EthereumProvider | null = null
@@ -156,6 +168,15 @@ export function useWallet() {
         detected: !!eth?.isTrust
       },
       {
+        id: 'imtoken',
+        name: 'imToken',
+        icon: 'imtoken',
+        color: 'linear-gradient(135deg, #11C4D1, #0062AD)',
+        description: '去中心化数字钱包',
+        downloadUrl: 'https://token.im/',
+        detected: !!window.imToken || !!eth?.isImToken
+      },
+      {
         id: 'coinbase',
         name: 'Coinbase Wallet',
         icon: 'coinbase',
@@ -163,6 +184,42 @@ export function useWallet() {
         description: 'Coinbase 官方钱包',
         downloadUrl: 'https://www.coinbase.com/wallet',
         detected: !!eth?.isCoinbaseWallet
+      },
+      {
+        id: 'huobi',
+        name: '火币钱包',
+        icon: 'huobi',
+        color: 'linear-gradient(135deg, #2DAF68, #1B8A4E)',
+        description: '火币生态链官方钱包',
+        downloadUrl: 'https://www.htx.com/wallet',
+        detected: !!eth?.isHuobiWallet
+      },
+      {
+        id: 'onekey',
+        name: 'OneKey',
+        icon: 'onekey',
+        color: 'linear-gradient(135deg, #00B812, #009A0F)',
+        description: '开源硬件钱包',
+        downloadUrl: 'https://onekey.so/',
+        detected: !!window.onekey?.ethereum || !!window.$onekey?.ethereum || !!eth?.isOneKey
+      },
+      {
+        id: 'ledger',
+        name: 'Ledger',
+        icon: 'ledger',
+        color: 'linear-gradient(135deg, #000000, #333333)',
+        description: '硬件冷钱包，需通过 Ledger Live 连接',
+        downloadUrl: 'https://www.ledger.com/',
+        detected: false
+      },
+      {
+        id: 'trezor',
+        name: 'Trezor',
+        icon: 'trezor',
+        color: 'linear-gradient(135deg, #001E2B, #00854D)',
+        description: '硬件冷钱包，需通过 Trezor Suite 连接',
+        downloadUrl: 'https://trezor.io/',
+        detected: false
       }
     ]
   })
@@ -178,6 +235,8 @@ export function useWallet() {
         if (walletId === 'metamask' && p.isMetaMask) return p
         if (walletId === 'tokenpocket' && p.isTokenPocket) return p
         if (walletId === 'coinbase' && p.isCoinbaseWallet) return p
+        if (walletId === 'imtoken' && p.isImToken) return p
+        if (walletId === 'onekey' && p.isOneKey) return p
       }
     }
 
@@ -185,6 +244,11 @@ export function useWallet() {
     if (walletId === 'okx' && window.okxwallet) return window.okxwallet
     if (walletId === 'tokenpocket' && window.tokenpocket?.ethereum) return window.tokenpocket.ethereum
     if (walletId === 'binance' && window.BinanceChain) return window.BinanceChain
+    if (walletId === 'onekey' && (window.onekey?.ethereum || window.$onekey?.ethereum)) {
+      return window.onekey?.ethereum || window.$onekey?.ethereum || null
+    }
+    // Ledger & Trezor connect via MetaMask/generic ethereum
+    if (walletId === 'ledger' || walletId === 'trezor') return eth
 
     // 回退到默认 ethereum
     return eth
@@ -357,6 +421,10 @@ export function useWallet() {
     showModal.value = false
     error.value = ''
   }
+
+  watch(state, (s) => {
+    appStore.setWalletState(s.connected, s.address, s.shortAddress, s.providerName, s.balance)
+  }, { deep: true })
 
   /* ── 生命周期 ── */
   onMounted(() => {

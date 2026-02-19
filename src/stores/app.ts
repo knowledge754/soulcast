@@ -2,13 +2,15 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
 export const useAppStore = defineStore('app', () => {
-  const walletConnected = ref(true)
-  const walletAddress = ref('0x7a3F...8cB2')
-  const walletFullAddress = ref('0x7a3Fc5B90d269A823ed1E40fCe9E8cB2')
+  const walletConnected = ref(false)
+  const walletAddress = ref('')
+  const walletFullAddress = ref('')
+  const walletProvider = ref('')
   const ensName = ref('')
-  const balance = ref('2.48 ETH')
+  const balance = ref('')
   const sidebarCollapsed = ref(false)
   const layoutMode = ref<'center' | 'full'>('center')
+  const showWalletModal = ref(false)
 
   const stats = ref({
     posts: 42,
@@ -16,6 +18,14 @@ export const useAppStore = defineStore('app', () => {
     readers: '1.2K',
     earnings: '0.8 ETH'
   })
+
+  function setWalletState(connected: boolean, addr: string, short: string, provider: string, bal: string) {
+    walletConnected.value = connected
+    walletFullAddress.value = addr
+    walletAddress.value = short
+    walletProvider.value = provider
+    balance.value = bal
+  }
 
   function toggleWallet() {
     walletConnected.value = !walletConnected.value
@@ -33,11 +43,14 @@ export const useAppStore = defineStore('app', () => {
     walletConnected,
     walletAddress,
     walletFullAddress,
+    walletProvider,
     ensName,
     balance,
     sidebarCollapsed,
     layoutMode,
+    showWalletModal,
     stats,
+    setWalletState,
     toggleWallet,
     toggleSidebar,
     toggleLayout
