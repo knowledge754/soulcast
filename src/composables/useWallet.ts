@@ -240,7 +240,18 @@ function logWalletDiagnostics() {
   console.log('window.trustwallet:', window.trustwallet ? '✅' : '❌')
   console.log('window.$onekey?.ethereum:', window.$onekey?.ethereum ? '✅' : '❌')
   console.log('OKX 劫持 window.ethereum:', isOKXPresent() ? '⚠️ 是' : '否')
-  console.log('EIP-6963 已发现:', eip6963Providers.value.map(d => `${d.info.name} (${d.info.rdns})`))
+  console.log('EIP-6963 已发现:')
+  eip6963Providers.value.forEach((d, i) => {
+    console.log(`  [${i}] ${d.info.name} | rdns: ${d.info.rdns} | mapped: ${RDNS_TO_WALLET[d.info.rdns] || '未映射'}`, {
+      '===okxwallet': d.provider === window.okxwallet,
+      '===ethereum': d.provider === window.ethereum,
+      isOKExWallet: !!d.provider.isOKExWallet,
+      isOkxWallet: !!d.provider.isOkxWallet,
+      isMetaMask: !!d.provider.isMetaMask,
+      isTokenPocket: !!d.provider.isTokenPocket,
+    })
+  })
+  if (eip6963Providers.value.length === 0) console.log('  (无)')
   console.groupEnd()
 }
 
@@ -416,11 +427,27 @@ export function useWallet() {
 
     console.log(`[ChainLog] 查找 ${walletId} provider... (OKX劫持: ${okxHijack})`)
 
-    // ① EIP-6963 — 最可靠，钱包用 RDNS 自证身份
+    // ① EIP-6963 — 需要验证不是 OKX 伪装
     const eip6963 = findEIP6963Provider(walletId)
     if (eip6963) {
-      console.log(`[ChainLog] ✅ ${walletId} → EIP-6963 命中`)
-      return eip6963
+      const matchedDetail = eip6963Providers.value.find(d => d.provider === eip6963)
+      console.log(`[ChainLog] EIP-6963 匹配到 ${walletId}:`, {
+        rdns: matchedDetail?.info.rdns,
+        name: matchedDetail?.info.name,
+        '===okxwallet': eip6963 === window.okxwallet,
+        '===ethereum': eip6963 === window.ethereum,
+        isOKExWallet: !!eip6963.isOKExWallet,
+        isOkxWallet: !!eip6963.isOkxWallet,
+      })
+      // 验证 EIP-6963 结果不是 OKX 伪装
+      if (walletId !== 'okx' && isGenuineNamespaceProvider(eip6963, `EIP-6963(${matchedDetail?.info.rdns})`)) {
+        console.log(`[ChainLog] ✅ ${walletId} → EIP-6963 (${matchedDetail?.info.rdns}) 验证通过`)
+        return eip6963
+      } else if (walletId === 'okx') {
+        console.log(`[ChainLog] ✅ okx → EIP-6963`)
+        return eip6963
+      }
+      console.warn(`[ChainLog] ⚠️ EIP-6963 的 ${walletId} provider 被 OKX 劫持，跳过`)
     }
 
     // ② 独立全局注入 — 验证不是 OKX 的伪装
