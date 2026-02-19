@@ -7,6 +7,7 @@ defineProps<{
   visible: boolean
   wallets: WalletProvider[]
   connecting: boolean
+  connectingId: string
   error: string
   connectedAddress?: string
   connectedProvider?: string
@@ -83,7 +84,7 @@ function getWalletIcon(w: WalletProvider): string {
                 v-for="w in wallets"
                 :key="w.id"
                 class="wallet-card"
-                :class="{ loading: connecting }"
+                :class="{ active: connectingId === w.id, dimmed: connecting && connectingId !== w.id }"
                 :disabled="connecting"
                 @click="emit('connect', w.id)"
               >
@@ -95,9 +96,9 @@ function getWalletIcon(w: WalletProvider): string {
                   <div class="wallet-desc">{{ w.description }}</div>
                 </div>
                 <div class="wallet-arrow">
-                  <Icon name="arrowRight" :size="14" />
+                  <Icon v-if="connectingId !== w.id" name="arrowRight" :size="14" />
+                  <div v-else class="wallet-spinner"></div>
                 </div>
-                <div v-if="connecting" class="wallet-spinner"></div>
               </button>
             </div>
           </div>
@@ -303,9 +304,14 @@ function getWalletIcon(w: WalletProvider): string {
   transform: translateX(4px);
   box-shadow: var(--glow-blue);
 }
-.wallet-card.loading {
+.wallet-card.active {
+  border-color: rgba(99, 179, 237, 0.5);
+  background: rgba(99, 179, 237, 0.06);
+  box-shadow: var(--glow-blue);
+}
+.wallet-card.dimmed {
   pointer-events: none;
-  opacity: 0.7;
+  opacity: 0.4;
 }
 
 .wallet-logo {
@@ -351,18 +357,16 @@ function getWalletIcon(w: WalletProvider): string {
 
 /* ── Spinner ── */
 .wallet-spinner {
-  position: absolute;
-  inset: 0;
-  border-radius: 12px;
+  width: 18px;
+  height: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(12, 21, 37, 0.85);
 }
 .wallet-spinner::after {
   content: '';
-  width: 22px;
-  height: 22px;
+  width: 16px;
+  height: 16px;
   border: 2px solid var(--border);
   border-top-color: var(--accent-blue);
   border-radius: 50%;

@@ -284,6 +284,7 @@ export function useWallet() {
     set: (v: boolean) => { appStore.showWalletModal = v }
   })
   const connecting = ref(false)
+  const connectingId = ref('')
   const error = ref('')
   let currentProvider: EthereumProvider | null = null
 
@@ -567,6 +568,7 @@ export function useWallet() {
   /* ══════════ 连接钱包 ══════════ */
   async function connectWallet(walletId: string) {
     connecting.value = true
+    connectingId.value = walletId
     error.value = ''
     let requestStart = Date.now()
 
@@ -649,6 +651,7 @@ export function useWallet() {
       }
     } finally {
       connecting.value = false
+      connectingId.value = ''
     }
   }
 
@@ -788,6 +791,7 @@ export function useWallet() {
     state,
     showModal,
     connecting,
+    connectingId,
     error,
     walletList,
     connectWallet,

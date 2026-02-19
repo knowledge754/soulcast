@@ -266,6 +266,7 @@ function closeDropdown() {
     :visible="wallet.showModal.value"
     :wallets="wallet.walletList.value"
     :connecting="wallet.connecting.value"
+    :connecting-id="wallet.connectingId.value"
     :error="wallet.error.value"
     :connected-address="wallet.state.value.connected ? wallet.state.value.address : undefined"
     :connected-provider="wallet.state.value.connected ? wallet.state.value.providerName : undefined"
