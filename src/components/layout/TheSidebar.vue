@@ -122,7 +122,7 @@ function isActive(name: string) {
     <!-- ====== 折叠态 ====== -->
     <template v-else>
       <!-- Logo 点击展开 -->
-      <div class="c-logo" @click="app.toggleSidebar()" title="展开侧边栏">
+      <div class="c-logo" @click="router.push({ name: 'home' })" @dblclick="app.toggleSidebar()" title="点击回首页 / 双击展开">
         <Icon name="hexagon" :size="20" color="var(--accent-cyan)" />
       </div>
 

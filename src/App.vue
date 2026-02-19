@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import TheSidebar from './components/layout/TheSidebar.vue'
 import TheTopbar from './components/layout/TheTopbar.vue'
 import StarBackground from './components/layout/StarBackground.vue'
+import SearchModal from './components/SearchModal.vue'
 import { useAppStore } from './stores/app'
 
 const app = useAppStore()
@@ -13,6 +14,7 @@ const isHome = computed(() => route.name === 'home')
 
 <template>
   <StarBackground :full="isHome" />
+  <SearchModal />
   <div id="app-shell">
     <TheSidebar />
     <main class="main-area" :class="{ collapsed: app.sidebarCollapsed }">

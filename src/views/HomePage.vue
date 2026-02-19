@@ -14,18 +14,47 @@ const i18n = useI18n()
 const heroTitle = computed(() => i18n.t('home.title'))
 const heroSub = computed(() => profile.bio || i18n.t('home.sub'))
 
+function getSocialUrl(key: string, value: string): string {
+  const v = value.trim()
+  if (v.startsWith('http://') || v.startsWith('https://')) return v
+  switch (key) {
+    case 'twitter': return `https://x.com/${v}`
+    case 'github': return `https://github.com/${v}`
+    case 'telegram': return `https://t.me/${v}`
+    case 'email': return `mailto:${v}`
+    case 'mirror': return `https://mirror.xyz/${v}`
+    case 'ens': return `https://app.ens.domains/${v}`
+    default: return '#'
+  }
+}
+
 const activeSocialLinks = computed(() => {
-  const icons: { key: string; value: string; svg: string }[] = []
+  const icons: { key: string; value: string; url: string; svg: string; external: boolean }[] = []
   const sl = profile.socialLinks
-  if (sl.twitter) icons.push({ key: 'twitter', value: sl.twitter, svg: 'M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z' })
-  if (sl.github) icons.push({ key: 'github', value: sl.github, svg: 'M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22' })
-  if (sl.telegram) icons.push({ key: 'telegram', value: sl.telegram, svg: 'M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z' })
-  if (sl.wechat) icons.push({ key: 'wechat', value: sl.wechat, svg: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z' })
-  if (sl.qq) icons.push({ key: 'qq', value: sl.qq, svg: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM8 9h.01M16 9h.01M8 13c1.5 2 6.5 2 8 0' })
-  if (sl.email) icons.push({ key: 'email', value: sl.email, svg: 'M2 6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6zm20 1l-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7' })
-  if (sl.mirror) icons.push({ key: 'mirror', value: sl.mirror, svg: 'M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z' })
-  if (sl.ens) icons.push({ key: 'ens', value: sl.ens, svg: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5' })
+  if (sl.twitter) icons.push({ key: 'twitter', value: sl.twitter, url: getSocialUrl('twitter', sl.twitter), svg: 'M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z', external: true })
+  if (sl.github) icons.push({ key: 'github', value: sl.github, url: getSocialUrl('github', sl.github), svg: 'M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22', external: true })
+  if (sl.telegram) icons.push({ key: 'telegram', value: sl.telegram, url: getSocialUrl('telegram', sl.telegram), svg: 'M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z', external: true })
+  if (sl.wechat) icons.push({ key: 'wechat', value: sl.wechat, url: '#', svg: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z', external: false })
+  if (sl.qq) icons.push({ key: 'qq', value: sl.qq, url: '#', svg: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM8 9h.01M16 9h.01M8 13c1.5 2 6.5 2 8 0', external: false })
+  if (sl.email) icons.push({ key: 'email', value: sl.email, url: getSocialUrl('email', sl.email), svg: 'M2 6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6zm20 1l-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7', external: true })
+  if (sl.mirror) icons.push({ key: 'mirror', value: sl.mirror, url: getSocialUrl('mirror', sl.mirror), svg: 'M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z', external: true })
+  if (sl.ens) icons.push({ key: 'ens', value: sl.ens, url: getSocialUrl('ens', sl.ens), svg: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5', external: true })
   return icons
+})
+
+const videoEmbed = computed(() => {
+  const url = profile.heroVideoUrl?.trim()
+  if (!url) return null
+  // YouTube
+  const ytMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([\w-]+)/)
+  if (ytMatch) return { type: 'iframe', src: `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1&mute=1&loop=1&playlist=${ytMatch[1]}&controls=0` }
+  // Bilibili
+  const bvMatch = url.match(/bilibili\.com\/video\/(BV[\w]+)/)
+  if (bvMatch) return { type: 'iframe', src: `https://player.bilibili.com/player.html?bvid=${bvMatch[1]}&autoplay=1&muted=1` }
+  const aidMatch = url.match(/bilibili\.com\/video\/av(\d+)/)
+  if (aidMatch) return { type: 'iframe', src: `https://player.bilibili.com/player.html?aid=${aidMatch[1]}&autoplay=1&muted=1` }
+  // Direct video
+  return { type: 'video', src: url }
 })
 
 const posts = [
@@ -138,8 +167,10 @@ const moments = [
               v-for="s in activeSocialLinks"
               :key="s.key"
               class="hero-social-btn"
-              :title="s.key"
-              href="javascript:;"
+              :title="s.value"
+              :href="s.url"
+              :target="s.external ? '_blank' : undefined"
+              rel="noopener noreferrer"
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path :d="s.svg" />
@@ -149,9 +180,17 @@ const moments = [
         </div>
       </div>
       <div class="hero-media">
+        <iframe
+          v-if="videoEmbed && videoEmbed.type === 'iframe'"
+          :src="videoEmbed.src"
+          class="hero-video"
+          frameborder="0"
+          allow="autoplay; encrypted-media"
+          allowfullscreen
+        />
         <video
-          v-if="profile.heroVideoUrl"
-          :src="profile.heroVideoUrl"
+          v-else-if="videoEmbed && videoEmbed.type === 'video'"
+          :src="videoEmbed.src"
           autoplay
           muted
           loop

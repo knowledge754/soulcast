@@ -8,6 +8,7 @@ import { useAppStore } from '../../stores/app'
 import { useI18n, languages } from '../../stores/i18n'
 import type { Locale } from '../../stores/i18n'
 import { useThemeStore, themes } from '../../stores/theme'
+import { useSearchStore } from '../../stores/search'
 
 const route = useRoute()
 const router = useRouter()
@@ -15,6 +16,7 @@ const wallet = useWallet()
 const app = useAppStore()
 const i18n = useI18n()
 const themeStore = useThemeStore()
+const searchStore = useSearchStore()
 const showDropdown = ref(false)
 const showLangMenu = ref(false)
 const showThemeMenu = ref(false)
@@ -77,7 +79,7 @@ function closeDropdown() {
       <div class="topbar-title">{{ pageTitle }}</div>
     </div>
 
-    <div class="topbar-search">
+    <div class="topbar-search" @click="searchStore.open()">
       <Icon name="search" :size="14" class="search-icon" />
       <span class="search-placeholder">{{ i18n.t('topbar.search') }}</span>
       <span class="search-shortcut">⌘K</span>

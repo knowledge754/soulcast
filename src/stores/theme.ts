@@ -10,6 +10,37 @@ export interface ThemePreset {
 
 export const themes: ThemePreset[] = [
   {
+    id: 'light',
+    name: {
+      'zh-CN': '日间白', 'zh-TW': '日間白', 'en-US': 'Light',
+      'ja-JP': 'ライト', 'ko-KR': '라이트',
+      'fr-FR': 'Clair', 'de-DE': 'Hell', 'es-ES': 'Claro', 'ru-RU': 'Светлый',
+    },
+    colors: ['#f8fafc', '#3b82f6', '#8b5cf6'],
+    vars: {
+      '--bg-void': '#f0f2f5',
+      '--bg-deep': '#f8fafc',
+      '--bg-card': 'rgba(255, 255, 255, 0.85)',
+      '--bg-card-solid': '#ffffff',
+      '--bg-glass': 'rgba(255, 255, 255, 0.65)',
+      '--bg-glass-heavy': 'rgba(255, 255, 255, 0.9)',
+      '--border': 'rgba(0, 0, 0, 0.08)',
+      '--border-hover': 'rgba(0, 0, 0, 0.15)',
+      '--border-active': 'rgba(59, 130, 246, 0.5)',
+      '--accent-blue': '#3b82f6',
+      '--accent-cyan': '#0ea5e9',
+      '--accent-purple': '#8b5cf6',
+      '--accent-warm': '#f59e0b',
+      '--accent-pink': '#ec4899',
+      '--accent-green': '#22c55e',
+      '--text-primary': '#0f172a',
+      '--text-secondary': '#475569',
+      '--text-muted': '#94a3b8',
+      '--glow-blue': '0 0 20px rgba(59, 130, 246, 0.12)',
+      '--glow-purple': '0 0 20px rgba(139, 92, 246, 0.12)',
+    },
+  },
+  {
     id: 'deep-space',
     name: {
       'zh-CN': '深空', 'zh-TW': '深空', 'en-US': 'Deep Space',
