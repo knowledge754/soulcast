@@ -129,7 +129,8 @@ export function useWallet() {
         color: 'linear-gradient(135deg, #E2761B, #CD6116)',
         description: '最流行的浏览器钱包插件',
         downloadUrl: 'https://metamask.io/download/',
-        detected: !!eth?.isMetaMask || !!getSpecificProvider('metamask')
+        detected: !!(eth?.providers?.some(p => p.isMetaMask && !p.isOKExWallet && !p.isOkxWallet))
+          || !!(eth?.isMetaMask && !eth?.isOKExWallet && !eth?.isOkxWallet)
       },
       {
         id: 'tokenpocket',
@@ -230,28 +231,47 @@ export function useWallet() {
     if (!eth) return null
 
     // 多 provider 注入场景 (EIP-5749)
+    // 当多个钱包扩展同时安装时，它们的 provider 会放在 eth.providers 数组中
     if (eth.providers && Array.isArray(eth.providers)) {
       for (const p of eth.providers) {
-        if (walletId === 'metamask' && p.isMetaMask) return p
+        if (walletId === 'metamask' && p.isMetaMask && !p.isOKExWallet && !p.isOkxWallet) return p
         if (walletId === 'tokenpocket' && p.isTokenPocket) return p
         if (walletId === 'coinbase' && p.isCoinbaseWallet) return p
         if (walletId === 'imtoken' && p.isImToken) return p
         if (walletId === 'onekey' && p.isOneKey) return p
+        if (walletId === 'trust' && p.isTrust) return p
+        if (walletId === 'okx' && (p.isOKExWallet || p.isOkxWallet)) return p
+        if (walletId === 'binance' && p.isBinance) return p
       }
     }
 
-    // 特定全局对象
+    // 特定全局对象（独立注入点）
     if (walletId === 'okx' && window.okxwallet) return window.okxwallet
     if (walletId === 'tokenpocket' && window.tokenpocket?.ethereum) return window.tokenpocket.ethereum
     if (walletId === 'binance' && window.BinanceChain) return window.BinanceChain
     if (walletId === 'onekey' && (window.onekey?.ethereum || window.$onekey?.ethereum)) {
       return window.onekey?.ethereum || window.$onekey?.ethereum || null
     }
-    // Ledger & Trezor connect via MetaMask/generic ethereum
-    if (walletId === 'ledger' || walletId === 'trezor') return eth
 
-    // 回退到默认 ethereum
-    return eth
+    // 单 provider 场景：验证 eth 本身是否匹配请求的钱包
+    if (walletId === 'metamask' && eth.isMetaMask && !eth.isOKExWallet && !eth.isOkxWallet && !eth.isTokenPocket) return eth
+    if (walletId === 'okx' && (eth.isOKExWallet || eth.isOkxWallet)) return eth
+    if (walletId === 'tokenpocket' && eth.isTokenPocket) return eth
+    if (walletId === 'trust' && eth.isTrust) return eth
+    if (walletId === 'binance' && eth.isBinance) return eth
+    if (walletId === 'imtoken' && eth.isImToken) return eth
+    if (walletId === 'coinbase' && eth.isCoinbaseWallet) return eth
+    if (walletId === 'huobi' && eth.isHuobiWallet) return eth
+    if (walletId === 'onekey' && eth.isOneKey) return eth
+
+    // 硬件钱包通过浏览器扩展（MetaMask Snap 等）桥接
+    if (walletId === 'ledger' || walletId === 'trezor') {
+      const mm = eth.providers?.find(p => p.isMetaMask && !p.isOKExWallet && !p.isOkxWallet)
+      return mm || (eth.isMetaMask && !eth.isOKExWallet ? eth : null)
+    }
+
+    // 不匹配任何钱包 → 返回 null，触发"未检测到"提示
+    return null
   }
 
   /* ── 连接钱包 ── */
