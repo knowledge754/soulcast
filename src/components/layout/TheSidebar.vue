@@ -257,7 +257,7 @@ function isActive(name: string) {
 }
 .brand-text {
   overflow: hidden;
-  white-space: nowrap;
+  min-width: 0;
 }
 .brand-name {
   font-size: 17px;
@@ -269,11 +269,17 @@ function isActive(name: string) {
   background-clip: text;
 }
 .brand-sub {
-  font-size: 9px;
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  letter-spacing: 1px;
-  margin-top: 1px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  letter-spacing: 0.3px;
+  margin-top: 2px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-all;
 }
 .collapse-btn {
   width: 26px;
