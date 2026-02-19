@@ -1,15 +1,76 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useI18n } from '../stores/i18n'
 import Icon from '../components/icons/Icon.vue'
 
 const i18n = useI18n()
 
 /* ═══ Tab ═══ */
-const activeTab = ref<'create' | 'mine' | 'blackhole' | 'received'>('create')
+const activeTab = ref<'create' | 'mine' | 'received'>('create')
 function showTab(name: typeof activeTab.value) {
   activeTab.value = name
 }
+
+/* ═══ Attachments ═══ */
+interface Attachment {
+  id: number; file: File; url: string; type: 'image' | 'video' | 'audio' | 'other'
+}
+const attachments = ref<Attachment[]>([])
+const fileInputRef = ref<HTMLInputElement>()
+
+function triggerFileUpload() {
+  fileInputRef.value?.click()
+}
+function handleFileSelect(e: Event) {
+  const files = (e.target as HTMLInputElement).files
+  if (!files) return
+  for (const file of Array.from(files)) {
+    const type = file.type.startsWith('image/') ? 'image'
+      : file.type.startsWith('video/') ? 'video'
+      : file.type.startsWith('audio/') ? 'audio' : 'other'
+    attachments.value.push({ id: Date.now() + Math.random(), file, url: URL.createObjectURL(file), type })
+  }
+  if (fileInputRef.value) fileInputRef.value.value = ''
+}
+function removeAttachment(id: number) {
+  const idx = attachments.value.findIndex(a => a.id === id)
+  if (idx >= 0) {
+    URL.revokeObjectURL(attachments.value[idx].url)
+    attachments.value.splice(idx, 1)
+  }
+}
+
+/* ═══ Custom Date Picker ═══ */
+const showDatePicker = ref(false)
+const pickYear = ref(new Date().getFullYear() + 3)
+const pickMonth = ref(new Date().getMonth())
+const pickDay = ref(new Date().getDate())
+const pickHour = ref(0)
+const pickMinute = ref(0)
+
+const daysInMonth = computed(() => new Date(pickYear.value, pickMonth.value + 1, 0).getDate())
+const firstDayOfWeek = computed(() => new Date(pickYear.value, pickMonth.value, 1).getDay() || 7)
+
+function prevMonth() {
+  if (pickMonth.value === 0) { pickMonth.value = 11; pickYear.value-- }
+  else pickMonth.value--
+  if (pickDay.value > daysInMonth.value) pickDay.value = daysInMonth.value
+}
+function nextMonth() {
+  if (pickMonth.value === 11) { pickMonth.value = 0; pickYear.value++ }
+  else pickMonth.value++
+  if (pickDay.value > daysInMonth.value) pickDay.value = daysInMonth.value
+}
+function confirmDate() {
+  const d = new Date(pickYear.value, pickMonth.value, pickDay.value, pickHour.value, pickMinute.value)
+  unlockDate.value = d.toISOString().slice(0, 16)
+  showDatePicker.value = false
+}
+const formattedDate = computed(() => {
+  if (!unlockDate.value) return '选择开启时间…'
+  const d = new Date(unlockDate.value)
+  return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+})
 
 /* ═══ Create: Step ═══ */
 const createStep = ref(1)
@@ -107,10 +168,10 @@ const ttsTexts: Record<number, string> = {
   4: '星封成功，等待开启的那一天。'
 }
 
-function speakPhase(phase: number) {
+function speakPhase(phase: number, texts: Record<number, string> = ttsTexts) {
   if (!('speechSynthesis' in window)) return
   window.speechSynthesis.cancel()
-  const u = new SpeechSynthesisUtterance(ttsTexts[phase])
+  const u = new SpeechSynthesisUtterance(texts[phase])
   u.lang = 'zh-CN'
   u.rate = 0.9
   u.pitch = 1.2
@@ -148,6 +209,7 @@ function publishCapsule() {
   capsuleTitle.value = ''
   capsuleBody.value = ''
   recipientAddr.value = ''
+  attachments.value = []
   createStep.value = 1
 }
 
@@ -186,36 +248,68 @@ const sealedCount = computed(() => myCapsules.value.filter(c => c.status === 'se
 const openedCount = computed(() => myCapsules.value.filter(c => c.status === 'opened').length)
 const readyCount = computed(() => myCapsules.value.filter(c => c.status === 'ready').length)
 
-/* ═══ Blackhole ═══ */
-const blackholeCapsule = ref({
-  title: '「写给 2026 年的自己」',
-  type: '自言',
-  chain: 'Solana',
-  sealBlock: 'Block #18234567',
-  sealDate: '2023.02.18',
-  solPrice: '$22.4',
-  ethPrice: '$1,580',
-  ipfsCid: 'Qm7x3a…f2a9'
-})
-const countdownVals = ref({ days: '00', hours: '00', mins: '00', secs: '00' })
+/* ═══ Open Capsule ═══ */
+const showOpenOverlay = ref(false)
+const openPhase = ref(0)
+const openedCapsule = ref<{ title: string; body: string; type: string; chain: string; sealDate: string; attachments: { url: string; type: string }[] } | null>(null)
+const showOpenedContent = ref(false)
 
-let countdownTimer: ReturnType<typeof setInterval> | null = null
-onMounted(() => {
-  setPreset(3)
-  countdownTimer = setInterval(() => {
-    const now = new Date()
-    countdownVals.value.secs = String(59 - now.getSeconds()).padStart(2, '0')
-    countdownVals.value.mins = String(59 - now.getMinutes()).padStart(2, '0')
-  }, 1000)
-})
-onUnmounted(() => { if (countdownTimer) clearInterval(countdownTimer) })
+const openTtsTexts: Record<number, string> = {
+  1: '正在唤醒黑洞，引力场检测中。',
+  2: '胶囊正在从黑洞中被拉出。',
+  3: '解密成功，内容正在呈现。',
+  4: '封印已开启，欢迎回到过去的记忆。'
+}
 
 function openCapsuleFromCard(capsule: Capsule) {
   if (capsule.status === 'ready') {
-    blackholeCapsule.value.title = `「${capsule.title}」`
-    activeTab.value = 'blackhole'
+    showOpenOverlay.value = true
+    openPhase.value = 1
+    speakPhase(1, openTtsTexts)
+    setTimeout(() => { openPhase.value = 2; speakPhase(2, openTtsTexts) }, 1500)
+    setTimeout(() => { openPhase.value = 3; speakPhase(3, openTtsTexts) }, 3500)
+    setTimeout(() => { openPhase.value = 4; speakPhase(4, openTtsTexts) }, 5000)
+    setTimeout(() => {
+      showOpenOverlay.value = false
+      openPhase.value = 0
+      capsule.status = 'opened'
+      capsule.openDate = new Date().toISOString().slice(0, 10).replace(/-/g, '.')
+      capsule.countdown = undefined
+      openedCapsule.value = {
+        title: capsule.title,
+        body: '亲爱的未来的我，\n\n此刻是 2023 年的冬天，窗外飘着雪。我刚刚读完一本关于区块链的书，突然觉得应该把这一刻记录下来。\n\n如果你正在读这封信，说明你做到了——你坚持了下来。不管现在的世界变成了什么样，我希望你还记得那个在深夜写代码的少年，记得那份对去中心化世界的热爱。\n\n永远相信自己。\n\n—— 过去的你 ✨',
+        type: capsule.type === 'self' ? '自言' : capsule.type === 'other' ? '他言' : '世言',
+        chain: capsule.chain,
+        sealDate: capsule.sealDate,
+        attachments: [
+          { url: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=600', type: 'image' },
+          { url: 'https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=600', type: 'image' }
+        ]
+      }
+      showOpenedContent.value = true
+      window.speechSynthesis?.cancel()
+    }, 6500)
+  } else if (capsule.status === 'opened') {
+    openedCapsule.value = {
+      title: capsule.title,
+      body: '这是一段被封印的记忆，现在它属于你了。\n\n—— 来自过去的星封 ✨',
+      type: capsule.type === 'self' ? '自言' : capsule.type === 'other' ? '他言' : '世言',
+      chain: capsule.chain,
+      sealDate: capsule.sealDate,
+      attachments: []
+    }
+    showOpenedContent.value = true
   }
 }
+
+function closeOpenedContent() {
+  showOpenedContent.value = false
+  openedCapsule.value = null
+}
+
+onMounted(() => {
+  setPreset(3)
+})
 
 /* ═══ Received ═══ */
 interface ReceivedCapsule {
@@ -240,9 +334,6 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
       </button>
       <button class="ss-tab" :class="{ active: activeTab === 'mine' }" @click="showTab('mine')">
         我的胶囊 <span class="tab-count">{{ myCapsules.length }}</span>
-      </button>
-      <button class="ss-tab" :class="{ active: activeTab === 'blackhole' }" @click="showTab('blackhole')">
-        <Icon name="hexagon" :size="13" /> 黑洞
       </button>
       <button class="ss-tab" :class="{ active: activeTab === 'received' }" @click="showTab('received')">
         收到的 <span class="tab-count">{{ receivedCapsules.length }}</span>
@@ -351,13 +442,23 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 
                 <div class="form-section">
                   <div class="form-label">附件（图片 / 视频 / 音频）</div>
+                  <input ref="fileInputRef" type="file" multiple accept="image/*,video/*,audio/*" style="display:none" @change="handleFileSelect" />
                   <div class="media-grid">
-                    <div class="media-add">
+                    <div v-for="att in attachments" :key="att.id" class="media-item">
+                      <img v-if="att.type === 'image'" :src="att.url" class="media-thumb" />
+                      <video v-else-if="att.type === 'video'" :src="att.url" class="media-thumb" muted />
+                      <div v-else class="media-thumb media-file">
+                        <Icon name="music" :size="20" />
+                      </div>
+                      <button class="media-remove" @click="removeAttachment(att.id)">×</button>
+                      <div class="media-name">{{ att.file.name.slice(0, 12) }}</div>
+                    </div>
+                    <div class="media-add" @click="triggerFileUpload">
                       <Icon name="plus" :size="20" />
                       <span>添加</span>
                     </div>
                   </div>
-                  <div class="form-hint">所有附件将上传至 IPFS，哈希值永久存储在链上</div>
+                  <div class="form-hint">所有附件将上传至 IPFS，哈希值永久存储在链上（已选 {{ attachments.length }} 个）</div>
                 </div>
 
                 <div class="form-section">
@@ -403,7 +504,44 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 
                 <div class="form-section">
                   <div class="form-label">开启时间</div>
-                  <input v-model="unlockDate" type="datetime-local" class="ss-input date-pick" />
+                  <div class="date-trigger" @click="showDatePicker = !showDatePicker">
+                    <Icon name="clock" :size="14" />
+                    <span class="date-display">{{ formattedDate }}</span>
+                    <span class="date-arrow">▾</span>
+                  </div>
+                  <Transition name="ss-fade">
+                    <div v-if="showDatePicker" class="dp-panel">
+                      <div class="dp-backdrop" @click="showDatePicker = false"></div>
+                      <div class="dp-content">
+                        <div class="dp-header">
+                          <button class="dp-nav" @click="prevMonth">‹</button>
+                          <span class="dp-month">{{ pickYear }} 年 {{ pickMonth + 1 }} 月</span>
+                          <button class="dp-nav" @click="nextMonth">›</button>
+                        </div>
+                        <div class="dp-weekdays">
+                          <span v-for="w in ['一','二','三','四','五','六','日']" :key="w">{{ w }}</span>
+                        </div>
+                        <div class="dp-days">
+                          <span v-for="_ in firstDayOfWeek - 1" :key="'e'+_" class="dp-day empty"></span>
+                          <button v-for="d in daysInMonth" :key="d" class="dp-day" :class="{ active: d === pickDay }" @click="pickDay = d">{{ d }}</button>
+                        </div>
+                        <div class="dp-time">
+                          <div class="dp-time-group">
+                            <button class="dp-t-btn" @click="pickHour = (pickHour + 1) % 24">▲</button>
+                            <span class="dp-t-val">{{ String(pickHour).padStart(2,'0') }}</span>
+                            <button class="dp-t-btn" @click="pickHour = (pickHour + 23) % 24">▼</button>
+                          </div>
+                          <span class="dp-t-sep">:</span>
+                          <div class="dp-time-group">
+                            <button class="dp-t-btn" @click="pickMinute = (pickMinute + 1) % 60">▲</button>
+                            <span class="dp-t-val">{{ String(pickMinute).padStart(2,'0') }}</span>
+                            <button class="dp-t-btn" @click="pickMinute = (pickMinute + 59) % 60">▼</button>
+                          </div>
+                        </div>
+                        <button class="dp-confirm" @click="confirmDate">确认时间</button>
+                      </div>
+                    </div>
+                  </Transition>
                   <div class="presets">
                     <button v-for="y in [1, 3, 5, 10, 18]" :key="y" class="preset-btn" :class="{ active: activePreset === y }" @click="setPreset(y)">
                       {{ y === 18 ? '18年后（成年）' : y + '年后' }}
@@ -662,63 +800,6 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
       </div>
     </Transition>
 
-    <!-- ════════ BLACKHOLE ════════ -->
-    <Transition name="ss-fade" mode="out-in">
-      <div v-if="activeTab === 'blackhole'" key="blackhole" class="ss-panel">
-        <div class="open-scene">
-          <div class="blackhole-container" @click="sealCapsule">
-            <div class="bh-nebula"></div>
-            <div class="bh-glow"></div>
-            <div class="accretion"></div>
-            <div class="bh-spiral s1"></div>
-            <div class="bh-spiral s2"></div>
-            <div class="photon-ring"></div>
-            <div class="bh-inner-ring"></div>
-            <div class="bh-particle" v-for="n in 12" :key="'bp'+n" :style="{
-              animationDuration: (5 + n * 0.7) + 's',
-              animationDelay: (n * 0.4) + 's',
-              '--bp-dist': (60 + n * 8) + 'px',
-              '--bp-color': ['#fbbf24','#60a5fa','#a78bfa','#f472b6','#34d399','#22d3ee','#fbbf24','#60a5fa','#a78bfa','#f472b6','#34d399','#22d3ee'][n-1],
-              '--bp-size': (1.5 + Math.random() * 2.5) + 'px'
-            }"></div>
-            <div class="bh-void">
-              <div class="bh-text">点击<br>开启</div>
-            </div>
-          </div>
-
-          <div class="open-info">
-            <div class="open-title">{{ blackholeCapsule.title }}</div>
-            <div class="open-meta-row">
-              <span class="open-chip"><Icon name="moon" :size="11" /> {{ blackholeCapsule.type }}</span>
-              <span class="open-chip"><Icon name="hexagon" :size="11" /> {{ blackholeCapsule.chain }}</span>
-              <span class="open-chip ok"><Icon name="check" :size="11" /> 可开启</span>
-            </div>
-
-            <div class="countdown-box">
-              <div class="cd-unit"><div class="cd-num">{{ countdownVals.days }}</div><div class="cd-label">DAYS</div></div>
-              <div class="cd-unit"><div class="cd-num">{{ countdownVals.hours }}</div><div class="cd-label">HOURS</div></div>
-              <div class="cd-unit"><div class="cd-num">{{ countdownVals.mins }}</div><div class="cd-label">MINS</div></div>
-              <div class="cd-unit"><div class="cd-num">{{ countdownVals.secs }}</div><div class="cd-label">SECS</div></div>
-            </div>
-
-            <div class="open-actions">
-              <button class="btn-share"><Icon name="link" :size="13" /> 分享开启仪式</button>
-              <button class="btn-open-capsule" @click="sealCapsule">
-                <span class="boc-glow"></span>
-                <Icon name="hexagon" :size="15" /> 开启胶囊
-              </button>
-            </div>
-
-            <div class="open-chain-info">
-              封印于 {{ blackholeCapsule.sealBlock }} · {{ blackholeCapsule.sealDate }}<br>
-              当时 SOL 价格: {{ blackholeCapsule.solPrice }} · ETH: {{ blackholeCapsule.ethPrice }}<br>
-              IPFS CID: {{ blackholeCapsule.ipfsCid }}
-            </div>
-          </div>
-        </div>
-      </div>
-    </Transition>
-
     <!-- ════════ RECEIVED ════════ -->
     <Transition name="ss-fade" mode="out-in">
       <div v-if="activeTab === 'received'" key="received" class="ss-panel">
@@ -749,7 +830,7 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
             <div class="rc-preview">{{ rc.preview }}</div>
             <div class="rc-footer">
               <span class="rc-date">{{ rc.sealInfo }}</span>
-              <span class="rc-action" @click="rc.status === 'ready' && showTab('blackhole')">{{ rc.action }} →</span>
+              <span class="rc-action">{{ rc.action }} →</span>
             </div>
           </div>
         </div>
@@ -833,6 +914,111 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
               <span :class="{ active: sealPhase >= 2 }">加密</span>
               <span :class="{ active: sealPhase >= 3 }">上链</span>
               <span :class="{ active: sealPhase >= 4 }">完成</span>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- Open Capsule Overlay — 开启仪式 -->
+    <Teleport to="body">
+      <Transition name="ss-overlay">
+        <div v-if="showOpenOverlay" class="seal-overlay open-mode">
+          <div class="so-stars">
+            <div v-for="i in 60" :key="'os'+i" class="so-star"
+              :style="{
+                left: Math.random() * 100 + '%',
+                top: Math.random() * 100 + '%',
+                width: (Math.random() * 2 + 0.5) + 'px',
+                height: (Math.random() * 2 + 0.5) + 'px',
+                animationDuration: (2 + Math.random() * 4) + 's',
+                animationDelay: (Math.random() * 3) + 's'
+              }"
+            ></div>
+          </div>
+
+          <div class="open-anim" :class="'phase-' + openPhase">
+            <div class="oa-glow"></div>
+            <div class="oa-ring r1"></div>
+            <div class="oa-ring r2"></div>
+            <div class="oa-ring r3"></div>
+            <div class="oa-capsule" :class="{ cracking: openPhase >= 2, burst: openPhase >= 3 }">
+              <div class="oa-cap-body"></div>
+              <div class="oa-cap-band"></div>
+              <div class="oa-crack" v-if="openPhase >= 2"></div>
+            </div>
+            <div v-if="openPhase >= 3" class="oa-burst-particles">
+              <div v-for="p in 16" :key="'obp'+p" class="oa-bp"
+                :style="{
+                  '--bp-angle': (p * 22.5) + 'deg',
+                  '--bp-dist': (60 + Math.random() * 80) + 'px',
+                  '--bp-color': ['#fbbf24','#60a5fa','#a78bfa','#f472b6','#34d399','#22d3ee','#fbbf24','#60a5fa','#a78bfa','#f472b6','#34d399','#22d3ee','#fbbf24','#60a5fa','#a78bfa','#f472b6'][p-1],
+                  '--bp-size': (3 + Math.random() * 4) + 'px',
+                  animationDelay: (Math.random() * 0.3) + 's'
+                }"
+              ></div>
+            </div>
+          </div>
+
+          <div class="so-text-layer">
+            <Transition name="so-txt" mode="out-in">
+              <div v-if="openPhase === 1" key="op1" class="so-phase-text">
+                <div class="so-title">正在唤醒黑洞…</div>
+                <div class="so-sub">引力场检测中 · 定位封印胶囊</div>
+              </div>
+              <div v-else-if="openPhase === 2" key="op2" class="so-phase-text">
+                <div class="so-title">胶囊正在被拉出…</div>
+                <div class="so-sub">解密中 · 验证签名 · 恢复内容</div>
+              </div>
+              <div v-else-if="openPhase === 3" key="op3" class="so-phase-text">
+                <div class="so-title">封印破碎！</div>
+                <div class="so-sub">内容正在呈现 · 时光重现</div>
+              </div>
+              <div v-else-if="openPhase === 4" key="op4" class="so-phase-text">
+                <div class="so-title done">✦ 欢迎回来</div>
+                <div class="so-sub">来自过去的记忆，此刻属于你…</div>
+              </div>
+            </Transition>
+            <div class="so-progress">
+              <div class="so-progress-bar" :style="{ width: openPhase * 25 + '%' }"></div>
+            </div>
+            <div class="so-progress-steps">
+              <span :class="{ active: openPhase >= 1 }">唤醒</span>
+              <span :class="{ active: openPhase >= 2 }">解密</span>
+              <span :class="{ active: openPhase >= 3 }">破碎</span>
+              <span :class="{ active: openPhase >= 4 }">呈现</span>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- Opened Capsule Content -->
+    <Teleport to="body">
+      <Transition name="ss-overlay">
+        <div v-if="showOpenedContent && openedCapsule" class="opened-content-overlay">
+          <div class="oc-backdrop" @click="closeOpenedContent"></div>
+          <div class="oc-container">
+            <button class="oc-close" @click="closeOpenedContent">×</button>
+            <div class="oc-header">
+              <div class="oc-badge">{{ openedCapsule.type }} · {{ openedCapsule.chain }}</div>
+              <div class="oc-title">{{ openedCapsule.title }}</div>
+              <div class="oc-seal-info">封印于 {{ openedCapsule.sealDate }} · 已开启</div>
+            </div>
+            <div class="oc-body">
+              <div class="oc-text" v-html="openedCapsule.body.replace(/\n/g, '<br>')"></div>
+              <div v-if="openedCapsule.attachments.length" class="oc-attachments">
+                <div class="oc-att-title">附件</div>
+                <div class="oc-att-grid">
+                  <div v-for="(att, idx) in openedCapsule.attachments" :key="idx" class="oc-att-item">
+                    <img v-if="att.type === 'image'" :src="att.url" class="oc-att-img" />
+                    <video v-else-if="att.type === 'video'" :src="att.url" controls class="oc-att-img" />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="oc-footer">
+              <div class="oc-nft-hint">✦ 此胶囊已铸造为纪念 NFT</div>
             </div>
           </div>
         </div>
@@ -1041,16 +1227,6 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 .ss-input:focus { border-color: var(--ss-border-bright); }
 .ss-input::placeholder { color: var(--text-muted); }
 .ss-input.addr { padding-left: 32px; font-family: var(--font-mono); font-size: 12px; }
-.ss-input.date-pick {
-  font-family: var(--font-mono); font-size: 13px; cursor: pointer; color-scheme: dark;
-  background: linear-gradient(135deg, var(--ss-card), rgba(99,179,237,0.04));
-  border: 1.5px solid rgba(99,179,237,0.2); padding: 14px 16px;
-  letter-spacing: 1px; transition: all 0.25s;
-}
-.ss-input.date-pick:focus {
-  border-color: var(--star-blue);
-  box-shadow: 0 0 20px rgba(99,179,237,0.15);
-}
 
 .addr-wrap { position: relative; }
 .addr-prefix {
@@ -1254,25 +1430,6 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
   0% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
-}
-
-/* Open capsule btn */
-.btn-open-capsule {
-  padding: 12px 28px; border: none; border-radius: 99px; color: white;
-  font-size: 14px; font-weight: 600; cursor: pointer;
-  background: linear-gradient(135deg, #059669, #0891b2, #2563eb);
-  background-size: 200% 200%; animation: sealBtnShift 3s ease infinite;
-  display: flex; align-items: center; gap: 8px;
-  transition: all 0.3s; position: relative; overflow: hidden;
-  box-shadow: 0 4px 20px rgba(5,150,105,0.3);
-  font-family: inherit;
-}
-.btn-open-capsule:hover {
-  transform: translateY(-2px); box-shadow: 0 8px 32px rgba(5,150,105,0.45);
-}
-.boc-glow {
-  position: absolute; inset: 0;
-  background: linear-gradient(135deg, rgba(255,255,255,0.12), transparent 60%);
 }
 
 /* Preview step 3 */
@@ -1702,143 +1859,6 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 .cc-date { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); }
 .cc-chain { font-family: var(--font-mono); font-size: 10px; font-weight: 600; }
 
-/* ═══ BLACKHOLE ═══ */
-.open-scene { display: flex; flex-direction: column; align-items: center; padding: 20px 0 40px; }
-.blackhole-container {
-  width: 300px; height: 300px; position: relative; margin-bottom: 40px; cursor: pointer;
-}
-.bh-nebula {
-  position: absolute; inset: -50px; border-radius: 50%;
-  background: radial-gradient(ellipse at 40% 35%, rgba(183,148,244,0.08) 0%, transparent 50%),
-    radial-gradient(ellipse at 65% 70%, rgba(251,176,64,0.06) 0%, transparent 45%),
-    radial-gradient(ellipse at 50% 50%, rgba(99,179,237,0.04) 0%, transparent 60%);
-  animation: bhNebulaPulse 6s ease-in-out infinite alternate;
-  filter: blur(15px);
-}
-@keyframes bhNebulaPulse { from { opacity: 0.4; transform: scale(1); } to { opacity: 0.8; transform: scale(1.05) rotate(8deg); } }
-.bh-glow {
-  position: absolute; inset: -25px; border-radius: 50%;
-  background: radial-gradient(circle, rgba(251,176,64,0.1) 0%, rgba(99,179,237,0.06) 40%, transparent 70%);
-  animation: glowPulse 3s ease-in-out infinite;
-}
-@keyframes glowPulse { 0%,100% { opacity: 0.5; } 50% { opacity: 1; } }
-.accretion {
-  position: absolute; inset: 0; border-radius: 50%;
-  background: conic-gradient(
-    from 0deg,
-    rgba(251,176,64,0.0) 0deg, rgba(251,176,64,0.4) 45deg,
-    rgba(251,113,94,0.5) 90deg, rgba(251,176,64,0.2) 135deg,
-    rgba(99,179,237,0.3) 180deg, rgba(183,148,244,0.4) 225deg,
-    rgba(99,179,237,0.2) 270deg, rgba(251,176,64,0.1) 315deg,
-    rgba(251,176,64,0.0) 360deg
-  );
-  animation: diskSpin 8s linear infinite; filter: blur(8px); opacity: 0.7;
-}
-@keyframes diskSpin { to { transform: rotate(360deg); } }
-.bh-spiral {
-  position: absolute; inset: -5px; border-radius: 50%;
-  border: none; opacity: 0.4;
-  background: conic-gradient(from 0deg,
-    transparent 0deg, rgba(251,176,64,0.3) 20deg, transparent 60deg,
-    transparent 120deg, rgba(183,148,244,0.25) 150deg, transparent 200deg,
-    transparent 240deg, rgba(99,179,237,0.2) 280deg, transparent 340deg);
-  animation: diskSpin 12s linear infinite;
-  filter: blur(4px);
-}
-.bh-spiral.s2 {
-  inset: 15px; animation-duration: 9s; animation-direction: reverse;
-  background: conic-gradient(from 90deg,
-    transparent 0deg, rgba(99,179,237,0.25) 30deg, transparent 70deg,
-    transparent 140deg, rgba(251,176,64,0.2) 170deg, transparent 220deg,
-    transparent 280deg, rgba(246,135,179,0.2) 310deg, transparent 360deg);
-  opacity: 0.35;
-}
-.photon-ring {
-  position: absolute; inset: 40px; border-radius: 50%;
-  border: 2px solid rgba(251,176,64,0.5);
-  box-shadow: 0 0 25px rgba(251,176,64,0.3), 0 0 50px rgba(251,176,64,0.1), inset 0 0 20px rgba(251,176,64,0.1);
-  animation: photonSpin 4s linear infinite;
-}
-@keyframes photonSpin { to { transform: rotate(-360deg); } }
-.bh-inner-ring {
-  position: absolute; inset: 55px; border-radius: 50%;
-  border: 1px solid rgba(99,179,237,0.25);
-  box-shadow: 0 0 10px rgba(99,179,237,0.1);
-  animation: ringPulse 2.5s ease-in-out infinite;
-}
-.bh-particle {
-  position: absolute;
-  width: var(--bp-size, 2px); height: var(--bp-size, 2px);
-  border-radius: 50%;
-  background: var(--bp-color, white);
-  box-shadow: 0 0 6px var(--bp-color, white);
-  left: 50%; top: 50%;
-  margin-left: calc(var(--bp-size, 2px) / -2);
-  margin-top: calc(0px - var(--bp-dist, 80px));
-  transform-origin: calc(var(--bp-size, 2px) / 2) var(--bp-dist, 80px);
-  animation: bhOrbit linear infinite;
-}
-@keyframes bhOrbit { to { transform: rotate(360deg); } }
-.bh-void {
-  position: absolute; inset: 70px; border-radius: 50%;
-  background: radial-gradient(circle, #000 55%, #030712 80%, rgba(99,179,237,0.02) 100%);
-  box-shadow: 0 0 50px rgba(0,0,0,0.9), 0 0 100px rgba(0,0,0,0.5), inset 0 0 30px rgba(99,179,237,0.04);
-  display: flex; align-items: center; justify-content: center;
-  transition: all 0.3s;
-}
-.blackhole-container:hover .bh-void {
-  box-shadow: 0 0 60px rgba(0,0,0,0.95), 0 0 120px rgba(0,0,0,0.6), inset 0 0 40px rgba(99,179,237,0.06);
-}
-.bh-text { font-size: 13px; color: rgba(99,179,237,0.5); text-align: center; line-height: 1.6; letter-spacing: 0.5px; }
-.blackhole-container:hover .bh-text { color: rgba(99,179,237,0.8); }
-
-.open-info { text-align: center; max-width: 480px; }
-.open-title { font-size: 26px; font-weight: 600; margin-bottom: 10px; line-height: 1.3; }
-.open-meta-row {
-  display: flex; align-items: center; justify-content: center; gap: 10px;
-  margin-bottom: 24px; flex-wrap: wrap;
-}
-.open-chip {
-  display: inline-flex; align-items: center; gap: 5px;
-  background: var(--ss-card); border: 1px solid var(--ss-border);
-  padding: 4px 10px; border-radius: 6px; font-size: 11px; color: var(--text-secondary);
-}
-.open-chip.ok { color: var(--star-green); }
-.countdown-box { display: flex; gap: 10px; justify-content: center; margin-bottom: 28px; }
-.cd-unit {
-  text-align: center; min-width: 68px;
-  background: linear-gradient(145deg, var(--ss-card), rgba(104,211,145,0.04));
-  border: 1px solid rgba(104,211,145,0.2);
-  border-radius: 14px; padding: 14px 12px;
-  position: relative; overflow: hidden;
-}
-.cd-unit::before {
-  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(104,211,145,0.4), transparent);
-}
-.cd-num {
-  font-family: var(--font-mono); font-size: 30px; font-weight: 600;
-  color: var(--star-green); line-height: 1;
-  text-shadow: 0 0 20px rgba(104,211,145,0.3);
-}
-.cd-label {
-  font-size: 9px; color: var(--text-muted); margin-top: 6px;
-  letter-spacing: 2px; text-transform: uppercase;
-}
-
-.open-actions { display: flex; gap: 12px; justify-content: center; align-items: center; }
-.btn-share {
-  padding: 12px 24px; background: rgba(99,179,237,0.1);
-  border: 1px solid rgba(99,179,237,0.2); border-radius: var(--ss-r-sm);
-  color: var(--star-blue); font-size: 13px; cursor: pointer; transition: all 0.2s;
-  display: flex; align-items: center; gap: 6px;
-}
-.btn-share:hover { background: rgba(99,179,237,0.15); }
-.open-chain-info {
-  margin-top: 20px; font-family: var(--font-mono); font-size: 10px;
-  color: var(--text-muted); text-align: center; line-height: 1.8;
-}
-
 /* ═══ RECEIVED ═══ */
 .received-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
 .received-card {
@@ -2121,5 +2141,271 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
   .capsule-types { grid-template-columns: 1fr; }
   .capsule-grid { grid-template-columns: 1fr; }
   .lock-modes { grid-template-columns: 1fr; }
+}
+
+/* ═══ Attachment Upload ═══ */
+.media-item {
+  position: relative; border-radius: var(--ss-r-sm); overflow: hidden;
+  border: 1px solid var(--ss-border); background: var(--ss-card);
+}
+.media-thumb {
+  width: 100%; aspect-ratio: 1; object-fit: cover; display: block;
+}
+.media-thumb.media-file {
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-muted); background: rgba(99,179,237,0.05);
+}
+.media-remove {
+  position: absolute; top: 4px; right: 4px; width: 20px; height: 20px;
+  border-radius: 50%; background: rgba(0,0,0,0.7); color: white;
+  border: none; font-size: 13px; cursor: pointer; display: flex;
+  align-items: center; justify-content: center; line-height: 1;
+  opacity: 0; transition: opacity 0.2s;
+}
+.media-item:hover .media-remove { opacity: 1; }
+.media-name {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: linear-gradient(transparent, rgba(0,0,0,0.7));
+  padding: 12px 6px 4px; font-size: 9px; color: rgba(255,255,255,0.7);
+  text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ═══ Custom Date Picker ═══ */
+.date-trigger {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 16px; border-radius: 12px; cursor: pointer;
+  background: linear-gradient(135deg, var(--ss-card), rgba(99,179,237,0.03));
+  border: 1.5px solid rgba(99,179,237,0.15);
+  transition: all 0.25s; color: var(--text-primary);
+}
+.date-trigger:hover { border-color: var(--star-blue); box-shadow: 0 0 20px rgba(99,179,237,0.1); }
+.date-display { flex: 1; font-family: var(--font-mono); font-size: 14px; letter-spacing: 1.5px; }
+.date-arrow { color: var(--text-muted); font-size: 12px; }
+
+.dp-panel { position: relative; z-index: 50; }
+.dp-backdrop { position: fixed; inset: 0; z-index: -1; }
+.dp-content {
+  margin-top: 8px; padding: 16px;
+  background: var(--ss-card); border: 1px solid var(--ss-border);
+  border-radius: 16px; box-shadow: 0 12px 48px rgba(0,0,0,0.5);
+  backdrop-filter: var(--blur-card); width: 300px;
+}
+.dp-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 14px;
+}
+.dp-nav {
+  width: 28px; height: 28px; border-radius: 8px; border: 1px solid var(--ss-border);
+  background: transparent; color: var(--text-secondary); cursor: pointer;
+  font-size: 16px; display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+}
+.dp-nav:hover { border-color: var(--star-blue); color: var(--star-blue); }
+.dp-month {
+  font-family: var(--font-mono); font-size: 13px; font-weight: 600;
+  color: var(--text-primary); letter-spacing: 1px;
+}
+.dp-weekdays {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  text-align: center; font-size: 10px; color: var(--text-muted);
+  margin-bottom: 6px; letter-spacing: 1px;
+}
+.dp-days {
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px;
+}
+.dp-day {
+  width: 100%; aspect-ratio: 1; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; color: var(--text-secondary); cursor: pointer;
+  border: none; background: transparent; transition: all 0.15s;
+  font-family: var(--font-mono);
+}
+.dp-day:hover:not(.empty) { background: rgba(99,179,237,0.1); color: var(--text-primary); }
+.dp-day.active {
+  background: var(--star-blue); color: white;
+  box-shadow: 0 0 12px rgba(99,179,237,0.4);
+}
+.dp-day.empty { cursor: default; }
+.dp-time {
+  display: flex; align-items: center; justify-content: center;
+  gap: 8px; margin: 14px 0 12px; padding: 10px;
+  background: rgba(99,179,237,0.04); border-radius: 10px;
+}
+.dp-time-group { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.dp-t-btn {
+  width: 28px; height: 18px; border: none; border-radius: 4px;
+  background: rgba(99,179,237,0.1); color: var(--text-muted);
+  cursor: pointer; font-size: 8px; transition: all 0.15s;
+  display: flex; align-items: center; justify-content: center;
+}
+.dp-t-btn:hover { background: rgba(99,179,237,0.2); color: var(--star-blue); }
+.dp-t-val {
+  font-family: var(--font-mono); font-size: 22px; font-weight: 600;
+  color: var(--star-blue); min-width: 36px; text-align: center;
+  text-shadow: 0 0 15px rgba(99,179,237,0.3);
+}
+.dp-t-sep {
+  font-family: var(--font-mono); font-size: 20px; color: var(--text-muted);
+  animation: dpBlink 1s step-end infinite;
+}
+@keyframes dpBlink { 0%,50% { opacity: 1; } 51%,100% { opacity: 0; } }
+.dp-confirm {
+  width: 100%; padding: 10px; border: none; border-radius: 99px;
+  background: linear-gradient(135deg, var(--star-blue), rgba(99,179,237,0.7));
+  color: white; font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: all 0.25s; font-family: inherit;
+}
+.dp-confirm:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(99,179,237,0.3); }
+
+/* ═══ Open Animation ═══ */
+.open-mode { background: radial-gradient(ellipse at center, #030818 0%, #000 100%); }
+.open-anim {
+  width: 280px; height: 280px; position: relative; margin-bottom: 40px;
+  transition: all 1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.open-anim.phase-3, .open-anim.phase-4 { transform: scale(0.9); }
+.oa-glow {
+  position: absolute; inset: -50px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(104,211,145,0.08) 0%, rgba(99,179,237,0.04) 40%, transparent 70%);
+  animation: soGlowPulse 3s ease-in-out infinite;
+}
+.oa-ring {
+  position: absolute; border-radius: 50%; border: 1px solid rgba(104,211,145,0.2);
+  animation: oaRingExpand 3s ease-in-out infinite;
+}
+.oa-ring.r1 { inset: 20px; animation-delay: 0s; }
+.oa-ring.r2 { inset: 40px; animation-delay: 0.5s; border-color: rgba(99,179,237,0.15); }
+.oa-ring.r3 { inset: 60px; animation-delay: 1s; border-color: rgba(183,148,244,0.12); }
+@keyframes oaRingExpand {
+  0%,100% { transform: scale(1); opacity: 0.3; }
+  50% { transform: scale(1.08); opacity: 0.7; }
+}
+.oa-capsule {
+  position: absolute; left: 50%; top: 50%;
+  width: 52px; height: 90px; margin: -45px 0 0 -26px;
+  transition: all 1s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 5;
+}
+.oa-capsule.cracking { animation: oaCrack 1.5s ease-in-out; }
+.oa-capsule.burst { animation: oaBurst 0.8s ease forwards; }
+@keyframes oaCrack {
+  0%,100% { transform: rotate(0deg); }
+  15% { transform: rotate(-3deg); }
+  30% { transform: rotate(3deg); }
+  45% { transform: rotate(-5deg); }
+  60% { transform: rotate(5deg); }
+  75% { transform: rotate(-2deg); }
+}
+@keyframes oaBurst {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.5); opacity: 0.8; }
+  100% { transform: scale(0); opacity: 0; }
+}
+.oa-cap-body {
+  width: 100%; height: 100%; border-radius: 26px;
+  background: linear-gradient(180deg, #b0d4ff 0%, #60a5fa 15%, #2563eb 35%, #1e40af 50%, #1d4ed8 65%, #60a5fa 85%, #93c5fd 100%);
+  box-shadow: 0 0 30px rgba(99,179,237,0.5), 0 0 60px rgba(99,179,237,0.2);
+  border: 1px solid rgba(148,196,255,0.25);
+}
+.oa-cap-band {
+  position: absolute; left: -2px; right: -2px; top: 50%; transform: translateY(-50%);
+  height: 6px; border-radius: 3px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), rgba(104,211,145,0.9), rgba(255,255,255,0.6), transparent);
+}
+.oa-crack {
+  position: absolute; left: 50%; top: 30%; width: 2px; height: 40%;
+  background: linear-gradient(180deg, transparent, rgba(104,211,145,0.8), rgba(251,176,64,0.6), transparent);
+  transform: translateX(-50%);
+  animation: oaCrackGlow 0.5s ease-in-out infinite alternate;
+  box-shadow: 0 0 10px rgba(104,211,145,0.5);
+}
+@keyframes oaCrackGlow { from { opacity: 0.5; } to { opacity: 1; } }
+
+.oa-burst-particles { position: absolute; inset: 0; z-index: 10; }
+.oa-bp {
+  position: absolute; left: 50%; top: 50%;
+  width: var(--bp-size, 4px); height: var(--bp-size, 4px);
+  border-radius: 50%; background: var(--bp-color, white);
+  box-shadow: 0 0 8px var(--bp-color, white);
+  animation: oaBpExplode 1.2s ease-out forwards;
+}
+@keyframes oaBpExplode {
+  0% { transform: translate(-50%, -50%) rotate(var(--bp-angle, 0deg)) translateY(0); opacity: 1; }
+  100% { transform: translate(-50%, -50%) rotate(var(--bp-angle, 0deg)) translateY(calc(var(--bp-dist, 80px) * -1)); opacity: 0; }
+}
+
+/* ═══ Opened Content Overlay ═══ */
+.opened-content-overlay {
+  position: fixed; inset: 0; z-index: 9998;
+  display: flex; align-items: center; justify-content: center;
+  padding: 40px;
+}
+.oc-backdrop {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0.8);
+  backdrop-filter: blur(8px);
+}
+.oc-container {
+  position: relative; z-index: 1;
+  max-width: 680px; width: 100%; max-height: 80vh;
+  overflow-y: auto; border-radius: 24px;
+  background: linear-gradient(145deg, var(--ss-card), rgba(99,179,237,0.03));
+  border: 1px solid var(--ss-border);
+  box-shadow: 0 20px 80px rgba(0,0,0,0.5), 0 0 60px rgba(99,179,237,0.08);
+  animation: ocEnter 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes ocEnter {
+  from { opacity: 0; transform: scale(0.9) translateY(20px); }
+}
+.oc-close {
+  position: absolute; top: 16px; right: 16px; z-index: 2;
+  width: 32px; height: 32px; border-radius: 50%;
+  background: rgba(255,255,255,0.05); border: 1px solid var(--ss-border);
+  color: var(--text-muted); font-size: 18px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+}
+.oc-close:hover { background: rgba(255,255,255,0.1); color: var(--text-primary); }
+.oc-header {
+  padding: 32px 32px 20px; text-align: center;
+  border-bottom: 1px solid var(--ss-border);
+  position: relative;
+}
+.oc-header::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--star-green), var(--star-blue), var(--star-purple), transparent);
+  border-radius: 2px;
+}
+.oc-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 14px; border-radius: 99px;
+  font-size: 11px; font-weight: 500;
+  background: rgba(104,211,145,0.1); border: 1px solid rgba(104,211,145,0.2);
+  color: var(--star-green); margin-bottom: 14px;
+}
+.oc-title { font-size: 24px; font-weight: 600; margin-bottom: 8px; line-height: 1.3; }
+.oc-seal-info { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
+.oc-body { padding: 28px 32px; }
+.oc-text {
+  font-size: 16px; line-height: 2; color: var(--text-secondary);
+  font-family: var(--font-serif, 'Noto Serif SC', serif);
+}
+.oc-attachments { margin-top: 28px; }
+.oc-att-title {
+  font-size: 10px; letter-spacing: 2px; color: var(--text-muted);
+  text-transform: uppercase; font-family: var(--font-mono);
+  margin-bottom: 12px; padding-bottom: 8px;
+  border-bottom: 1px solid var(--ss-border);
+}
+.oc-att-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.oc-att-item { border-radius: 12px; overflow: hidden; border: 1px solid var(--ss-border); }
+.oc-att-img { width: 100%; display: block; }
+.oc-footer {
+  padding: 16px 32px 24px; text-align: center;
+  border-top: 1px solid var(--ss-border);
+}
+.oc-nft-hint {
+  font-size: 12px; color: var(--star-gold);
+  font-family: var(--font-mono); letter-spacing: 0.5px;
 }
 </style>
