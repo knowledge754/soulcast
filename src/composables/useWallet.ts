@@ -1,7 +1,16 @@
 /**
  * useWallet — Web3 钱包连接 composable
- * 采用 EIP-6963 多钱包发现 + 传统 window.ethereum 注入
- * 优先级: EIP-6963 → 独立全局注入 → providers 数组 → 严格单 provider
+ *
+ * 解决 OKX 钱包劫持 window.ethereum 的问题：
+ * 当 OKX 安装后，window.ethereum 被 OKX 接管，其上的 isMetaMask / isTokenPocket 等 flag 不可信。
+ * 即使在 providers 数组中找到看似正确的 provider，调用 .request() 仍可能弹出 OKX。
+ *
+ * 策略：
+ *   ① EIP-6963 — 钱包主动声明 RDNS 身份（最可靠）
+ *   ② 独立全局注入 — window.okxwallet / window.tokenpocket.ethereum 等
+ *   ③ providers 数组 — 带 _metamask 真实性校验
+ *   ④ window.ethereum — 仅当确认无 OKX 劫持时才使用
+ *   ⑤ 绝不使用通用回退 — 找不到就是找不到，不弹错误钱包
  */
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useAppStore } from '../stores/app'
@@ -27,7 +36,6 @@ export interface WalletState {
   providerName: string
 }
 
-/* ── EIP-6963 类型 ── */
 interface EIP6963ProviderInfo {
   uuid: string
   name: string
@@ -67,6 +75,7 @@ interface EthereumProvider {
   isImToken?: boolean
   isOneKey?: boolean
   isHuobiWallet?: boolean
+  _metamask?: unknown
   request: (args: { method: string; params?: unknown[] }) => Promise<unknown>
   on: (event: string, handler: (...args: unknown[]) => void) => void
   removeListener: (event: string, handler: (...args: unknown[]) => void) => void
@@ -115,7 +124,6 @@ function initEIP6963() {
   window.addEventListener('eip6963:announceProvider', ((event: Event) => {
     const detail = (event as CustomEvent).detail as EIP6963ProviderDetail
     if (!detail?.info?.rdns) return
-
     const idx = eip6963Providers.value.findIndex(d => d.info.rdns === detail.info.rdns)
     if (idx >= 0) {
       const copy = [...eip6963Providers.value]
@@ -164,6 +172,13 @@ function isDetectedViaEIP6963(walletId: string): boolean {
   return false
 }
 
+/* ══════════ OKX 劫持检测 ══════════ */
+function isOKXPresent(): boolean {
+  return !!window.okxwallet
+    || !!window.ethereum?.isOKExWallet
+    || !!window.ethereum?.isOkxWallet
+}
+
 /* ══════════ 工具函数 ══════════ */
 function shortenAddress(addr: string): string {
   if (!addr) return ''
@@ -188,6 +203,47 @@ async function getBalance(provider: EthereumProvider, address: string): Promise<
   }
 }
 
+/* ══════════ 诊断日志 ══════════ */
+function logWalletDiagnostics() {
+  const eth = window.ethereum
+  console.group('%c[ChainLog] 钱包环境诊断', 'color:#63b3ed;font-weight:bold')
+  console.log('window.ethereum:', eth ? '✅ 存在' : '❌ 不存在')
+  if (eth) {
+    console.log('  flags:', {
+      isMetaMask: !!eth.isMetaMask,
+      isOKExWallet: !!eth.isOKExWallet,
+      isOkxWallet: !!eth.isOkxWallet,
+      isTokenPocket: !!eth.isTokenPocket,
+      isTrust: !!eth.isTrust,
+      isBinance: !!eth.isBinance,
+      isImToken: !!eth.isImToken,
+      _metamask: !!(eth as EthereumProvider)._metamask,
+    })
+    if (eth.providers && Array.isArray(eth.providers)) {
+      console.log('  providers 数组:', eth.providers.length, '个')
+      eth.providers.forEach((p, i) => {
+        console.log(`    [${i}]:`, {
+          isMetaMask: !!p.isMetaMask,
+          isOKExWallet: !!p.isOKExWallet,
+          isOkxWallet: !!p.isOkxWallet,
+          isTokenPocket: !!p.isTokenPocket,
+          _metamask: !!(p as EthereumProvider)._metamask,
+        })
+      })
+    } else {
+      console.log('  providers 数组: 无')
+    }
+  }
+  console.log('window.okxwallet:', window.okxwallet ? '✅' : '❌')
+  console.log('window.tokenpocket?.ethereum:', window.tokenpocket?.ethereum ? '✅' : '❌')
+  console.log('window.BinanceChain:', window.BinanceChain ? '✅' : '❌')
+  console.log('window.trustwallet:', window.trustwallet ? '✅' : '❌')
+  console.log('window.$onekey?.ethereum:', window.$onekey?.ethereum ? '✅' : '❌')
+  console.log('OKX 劫持 window.ethereum:', isOKXPresent() ? '⚠️ 是' : '否')
+  console.log('EIP-6963 已发现:', eip6963Providers.value.map(d => `${d.info.name} (${d.info.rdns})`))
+  console.groupEnd()
+}
+
 /* ══════════ Composable ══════════ */
 export function useWallet() {
   const appStore = useAppStore()
@@ -210,10 +266,11 @@ export function useWallet() {
   const error = ref('')
   let currentProvider: EthereumProvider | null = null
 
-  /* ── 钱包列表（包含检测） ── */
+  /* ── 钱包列表 ── */
   const walletList = computed<WalletProvider[]>(() => {
     const eth = window.ethereum
-    const _deps = eip6963Providers.value // reactive dependency
+    const _deps = eip6963Providers.value
+    const okxHijack = isOKXPresent()
 
     return [
       {
@@ -224,8 +281,8 @@ export function useWallet() {
         description: '最流行的浏览器钱包插件',
         downloadUrl: 'https://metamask.io/download/',
         detected: isDetectedViaEIP6963('metamask')
-          || !!(eth?.providers?.some(p => p.isMetaMask && !p.isOKExWallet && !p.isOkxWallet && !p.isTokenPocket))
-          || !!(eth?.isMetaMask && !eth?.isOKExWallet && !eth?.isOkxWallet && !eth?.isTokenPocket)
+          || !!(eth?.providers?.some(p => p.isMetaMask && (p as EthereumProvider)._metamask))
+          || (!okxHijack && !!eth?.isMetaMask && !!(eth as EthereumProvider)._metamask)
       },
       {
         id: 'tokenpocket',
@@ -236,7 +293,6 @@ export function useWallet() {
         downloadUrl: 'https://www.tokenpocket.pro/',
         detected: isDetectedViaEIP6963('tokenpocket')
           || !!window.tokenpocket?.ethereum
-          || !!eth?.isTokenPocket
       },
       {
         id: 'okx',
@@ -259,7 +315,6 @@ export function useWallet() {
         downloadUrl: 'https://www.binance.com/web3wallet',
         detected: isDetectedViaEIP6963('binance')
           || !!window.BinanceChain
-          || !!eth?.isBinance
       },
       {
         id: 'trust',
@@ -268,7 +323,8 @@ export function useWallet() {
         color: 'linear-gradient(135deg, #3375BB, #0500FF)',
         description: '安全可信赖的多链钱包',
         downloadUrl: 'https://trustwallet.com/',
-        detected: isDetectedViaEIP6963('trust') || !!eth?.isTrust
+        detected: isDetectedViaEIP6963('trust')
+          || !!window.trustwallet
       },
       {
         id: 'imtoken',
@@ -277,7 +333,8 @@ export function useWallet() {
         color: 'linear-gradient(135deg, #11C4D1, #0062AD)',
         description: '去中心化数字钱包',
         downloadUrl: 'https://token.im/',
-        detected: isDetectedViaEIP6963('imtoken') || !!window.imToken || !!eth?.isImToken
+        detected: isDetectedViaEIP6963('imtoken')
+          || !!window.imToken
       },
       {
         id: 'coinbase',
@@ -286,7 +343,8 @@ export function useWallet() {
         color: 'linear-gradient(135deg, #0052FF, #0039B3)',
         description: 'Coinbase 官方钱包',
         downloadUrl: 'https://www.coinbase.com/wallet',
-        detected: isDetectedViaEIP6963('coinbase') || !!eth?.isCoinbaseWallet
+        detected: isDetectedViaEIP6963('coinbase')
+          || !!window.coinbaseWalletExtension
       },
       {
         id: 'huobi',
@@ -295,7 +353,7 @@ export function useWallet() {
         color: 'linear-gradient(135deg, #2DAF68, #1B8A4E)',
         description: '火币生态链官方钱包',
         downloadUrl: 'https://www.htx.com/wallet',
-        detected: isDetectedViaEIP6963('huobi') || !!eth?.isHuobiWallet
+        detected: isDetectedViaEIP6963('huobi')
       },
       {
         id: 'onekey',
@@ -307,7 +365,6 @@ export function useWallet() {
         detected: isDetectedViaEIP6963('onekey')
           || !!window.onekey?.ethereum
           || !!window.$onekey?.ethereum
-          || !!eth?.isOneKey
       },
       {
         id: 'ledger',
@@ -332,11 +389,14 @@ export function useWallet() {
 
   /* ══════════ 获取特定 Provider ══════════ */
   function getSpecificProvider(walletId: string): EthereumProvider | null {
-    // ① EIP-6963 — 钱包主动声明 RDNS 身份，最可靠，完全不受 window.ethereum 劫持
+    const eth = window.ethereum
+    const okxHijack = isOKXPresent()
+
+    // ① EIP-6963 — 最可靠，钱包用 RDNS 自证身份
     const eip6963 = findEIP6963Provider(walletId)
     if (eip6963) return eip6963
 
-    // ② 独立全局注入对象 — 各钱包专属命名空间，不会被其他钱包覆盖
+    // ② 独立全局注入 — 各钱包的专属命名空间，不受 OKX 劫持影响
     if (walletId === 'okx' && window.okxwallet) return window.okxwallet
     if (walletId === 'tokenpocket' && window.tokenpocket?.ethereum) return window.tokenpocket.ethereum
     if (walletId === 'binance' && window.BinanceChain) return window.BinanceChain
@@ -347,18 +407,18 @@ export function useWallet() {
       if (ok) return ok
     }
 
-    const eth = window.ethereum
     if (!eth) return null
 
-    // ③ EIP-5749 providers 数组 — 多钱包共存时每个钱包注入独立 provider
+    // ③ providers 数组 — 用 _metamask 等内部属性验证真实性
     if (eth.providers && Array.isArray(eth.providers)) {
       for (const p of eth.providers) {
         switch (walletId) {
           case 'metamask':
-            if (p.isMetaMask && !p.isOKExWallet && !p.isOkxWallet && !p.isTokenPocket && !p.isBinance) return p
+            // 真正的 MetaMask 有 _metamask 内部属性
+            if (p.isMetaMask && (p as EthereumProvider)._metamask && !p.isOKExWallet && !p.isOkxWallet) return p
             break
           case 'tokenpocket':
-            if (p.isTokenPocket) return p
+            if (p.isTokenPocket && !p.isOKExWallet && !p.isOkxWallet) return p
             break
           case 'coinbase':
             if (p.isCoinbaseWallet) return p
@@ -385,25 +445,32 @@ export function useWallet() {
       }
     }
 
-    // ④ 单 provider 场景 — window.ethereum 自身必须严格匹配
-    if (walletId === 'metamask' && eth.isMetaMask && !eth.isOKExWallet && !eth.isOkxWallet && !eth.isTokenPocket) return eth
-    if (walletId === 'okx' && (eth.isOKExWallet || eth.isOkxWallet)) return eth
-    if (walletId === 'tokenpocket' && eth.isTokenPocket) return eth
-    if (walletId === 'trust' && eth.isTrust) return eth
-    if (walletId === 'binance' && eth.isBinance) return eth
-    if (walletId === 'imtoken' && eth.isImToken) return eth
-    if (walletId === 'coinbase' && eth.isCoinbaseWallet) return eth
-    if (walletId === 'huobi' && eth.isHuobiWallet) return eth
-    if (walletId === 'onekey' && eth.isOneKey) return eth
-
-    // ⑤ 硬件钱包通过 MetaMask 桥接（Snap / Ledger Live / Trezor Suite）
-    if (walletId === 'ledger' || walletId === 'trezor') {
-      const mm = findEIP6963Provider('metamask')
-        || eth.providers?.find((p: EthereumProvider) => p.isMetaMask && !p.isOKExWallet && !p.isOkxWallet)
-      return mm || (eth.isMetaMask && !eth.isOKExWallet ? eth : null)
+    // ④ 单 provider — 仅当 OKX 未劫持时才信任 window.ethereum 上的 flag
+    if (!okxHijack) {
+      if (walletId === 'metamask' && eth.isMetaMask && !eth.isTokenPocket) return eth
+      if (walletId === 'tokenpocket' && eth.isTokenPocket && !eth.isMetaMask) return eth
+      if (walletId === 'trust' && eth.isTrust) return eth
+      if (walletId === 'binance' && eth.isBinance) return eth
+      if (walletId === 'imtoken' && eth.isImToken) return eth
+      if (walletId === 'coinbase' && eth.isCoinbaseWallet) return eth
+      if (walletId === 'huobi' && eth.isHuobiWallet) return eth
+      if (walletId === 'onekey' && eth.isOneKey) return eth
     }
 
-    // 不匹配 → null（由 connectWallet 处理提示）
+    // OKX 本身可以用 window.ethereum
+    if (walletId === 'okx' && (eth.isOKExWallet || eth.isOkxWallet)) return eth
+
+    // ⑤ 硬件钱包通过 MetaMask 桥接
+    if (walletId === 'ledger' || walletId === 'trezor') {
+      const mm = findEIP6963Provider('metamask')
+      if (mm) return mm
+      const mmFromProviders = eth.providers?.find(
+        (p: EthereumProvider) => p.isMetaMask && (p as EthereumProvider)._metamask
+      )
+      return mmFromProviders || null
+    }
+
+    // ⑥ 找不到 → 返回 null，绝不回退到通用 provider
     return null
   }
 
@@ -413,11 +480,16 @@ export function useWallet() {
     error.value = ''
 
     try {
-      // 优先找特定 provider，找不到则回退到 window.ethereum
-      const provider = getSpecificProvider(walletId) || window.ethereum
+      const provider = getSpecificProvider(walletId)
 
       if (!provider) {
-        error.value = '未检测到任何钱包，请安装浏览器钱包扩展后刷新页面'
+        const wallet = walletList.value.find(w => w.id === walletId)
+        const name = wallet?.name || walletId
+        if (!window.ethereum) {
+          error.value = '未检测到任何钱包扩展，请安装后刷新页面'
+        } else {
+          error.value = `未找到 ${name} 的专属连接通道，请确认已安装 ${name} 浏览器扩展并刷新页面`
+        }
         connecting.value = false
         return
       }
@@ -438,8 +510,6 @@ export function useWallet() {
       const chainIdHex = await provider.request({ method: 'eth_chainId' }) as string
       const chainId = hexToNumber(chainIdHex)
       const balance = await getBalance(provider, address)
-
-      // 检测实际连接的钱包名称（可能与用户选择的不同）
       const actualName = detectProviderName(provider) || walletId
 
       state.value = {
@@ -472,17 +542,16 @@ export function useWallet() {
     }
   }
 
-  /** 根据 provider 标志位反向检测实际钱包名称 */
   function detectProviderName(p: EthereumProvider): string {
-    if (p.isOKExWallet || p.isOkxWallet) return 'OKX Wallet'
-    if (p.isTokenPocket) return 'TokenPocket'
-    if (p.isBinance) return 'Binance Web3'
-    if (p.isTrust) return 'Trust Wallet'
+    if (p === window.okxwallet || p.isOKExWallet || p.isOkxWallet) return 'OKX Wallet'
+    if (p === window.tokenpocket?.ethereum || p.isTokenPocket) return 'TokenPocket'
+    if (p === window.BinanceChain || p.isBinance) return 'Binance Web3'
+    if (p === window.trustwallet || p.isTrust) return 'Trust Wallet'
     if (p.isCoinbaseWallet) return 'Coinbase Wallet'
     if (p.isImToken) return 'imToken'
     if (p.isOneKey) return 'OneKey'
     if (p.isHuobiWallet) return '火币钱包'
-    if (p.isMetaMask) return 'MetaMask'
+    if ((p as EthereumProvider)._metamask || p.isMetaMask) return 'MetaMask'
     return 'Web3 Wallet'
   }
 
@@ -541,7 +610,7 @@ export function useWallet() {
     provider.removeListener('chainChanged', handleChainChanged)
   }
 
-  /* ── 尝试自动恢复连接 ── */
+  /* ── 自动恢复连接 ── */
   async function tryAutoConnect() {
     try {
       const saved = localStorage.getItem('chainlog_wallet')
@@ -557,7 +626,7 @@ export function useWallet() {
         const chainIdHex = await provider.request({ method: 'eth_chainId' }) as string
         const chainId = hexToNumber(chainIdHex)
         const balance = await getBalance(provider, accounts[0])
-        const walletInfo = walletList.value.find(w => w.id === walletId)
+        const actualName = detectProviderName(provider) || walletId
 
         state.value = {
           connected: true,
@@ -566,7 +635,7 @@ export function useWallet() {
           chainId,
           chainName: CHAIN_MAP[chainId] || `Chain ${chainId}`,
           balance: `${balance} ETH`,
-          providerName: walletInfo?.name || walletId
+          providerName: actualName
         }
         setupListeners(provider)
       }
@@ -579,6 +648,11 @@ export function useWallet() {
   function openModal() {
     error.value = ''
     showModal.value = true
+    // 重新触发 EIP-6963 发现（可能有延迟加载的钱包）
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('eip6963:requestProvider'))
+    }
+    logWalletDiagnostics()
   }
 
   function closeModal() {
@@ -590,7 +664,6 @@ export function useWallet() {
     appStore.setWalletState(s.connected, s.address, s.shortAddress, s.providerName, s.balance)
   }, { deep: true })
 
-  /* ── 生命周期 ── */
   onMounted(() => {
     tryAutoConnect()
   })
