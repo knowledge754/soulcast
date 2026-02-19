@@ -1,9 +1,15 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { useI18n } from '../stores/i18n'
+import { useWallet } from '../composables/useWallet'
 import Icon from '../components/icons/Icon.vue'
+import TokenSelector from '../components/starsealed/TokenSelector.vue'
+import NftSelector from '../components/starsealed/NftSelector.vue'
+import type { LockedToken } from '../components/starsealed/TokenSelector.vue'
+import type { LockedNft } from '../components/starsealed/NftSelector.vue'
 
 const i18n = useI18n()
+const wallet = useWallet()
 
 /* ═══ Tab ═══ */
 const activeTab = ref<'create' | 'mine' | 'received'>('create')
@@ -138,13 +144,54 @@ function setPreset(years: number) {
 }
 
 /* ═══ Create: Chain ═══ */
-const selectedChain = ref('solana')
+const selectedChain = ref('bsc')
 const chains = [
-  { key: 'solana', name: 'Solana', fee: '~$0.001', color: '#9945ff', symbol: 'SOL' },
-  { key: 'sui', name: 'Sui', fee: '~$0.002', color: '#4da2ff', symbol: 'SUI' },
-  { key: 'avalanche', name: 'Avalanche', fee: '~$0.01', color: '#e84142', symbol: 'AVAX' },
+  { key: 'bsc', name: 'BSC', fee: '~$0.05', color: '#F0B90B', symbol: 'BNB' },
+  { key: 'ethereum', name: 'Ethereum', fee: '~$2.5', color: '#627EEA', symbol: 'ETH' },
   { key: 'base', name: 'Base', fee: '~$0.005', color: '#0052ff', symbol: 'BASE' },
+  { key: 'avalanche', name: 'Avalanche', fee: '~$0.01', color: '#e84142', symbol: 'AVAX' },
 ]
+
+/* ═══ Create: Locked Assets ═══ */
+const showTokenSelector = ref(false)
+const showNftSelector = ref(false)
+const lockedTokens = ref<LockedToken[]>([])
+const lockedNfts = ref<LockedNft[]>([])
+
+function onTokensConfirmed(tokens: LockedToken[]) {
+  lockedTokens.value = tokens
+  showTokenSelector.value = false
+}
+function onNftsConfirmed(nfts: LockedNft[]) {
+  lockedNfts.value = nfts
+  showNftSelector.value = false
+}
+function removeLockedToken(symbol: string) {
+  lockedTokens.value = lockedTokens.value.filter(t => t.symbol !== symbol)
+}
+function removeLockedNft(key: string) {
+  lockedNfts.value = lockedNfts.value.filter(n => `${n.contractAddress}:${n.tokenId}` !== key)
+}
+
+const totalLockedUsd = computed(() => {
+  return lockedTokens.value.reduce((s, t) => s + parseFloat(t.amount) * t.usdPrice, 0)
+})
+const hasLockedAssets = computed(() => lockedTokens.value.length > 0 || lockedNfts.value.length > 0)
+
+const gasEstimate = computed(() => {
+  const ch = chains.find(c => c.key === selectedChain.value)
+  const baseFee = parseFloat(ch?.fee.replace(/[~$]/g, '') || '0.05')
+  const tokenFee = lockedTokens.value.length * 0.03
+  const nftFee = lockedNfts.value.length * 0.05
+  const total = baseFee + tokenFee + nftFee
+  return {
+    contract: baseFee.toFixed(3),
+    ipfs: '0.001',
+    tokenApprove: tokenFee > 0 ? tokenFee.toFixed(3) : '0.000',
+    nftApprove: nftFee > 0 ? nftFee.toFixed(3) : '0.000',
+    total: total.toFixed(3),
+  }
+})
 
 /* ═══ Create: Sidebar meta ═══ */
 const metaType = computed(() => {
@@ -198,18 +245,26 @@ function publishCapsule() {
     id: Date.now(),
     type: capsuleType.value,
     title: capsuleTitle.value || '未命名胶囊',
-    chain: chains.find(c => c.key === selectedChain.value)?.symbol || 'SOL',
-    chainColor: chains.find(c => c.key === selectedChain.value)?.color || '#9945ff',
+    chain: chains.find(c => c.key === selectedChain.value)?.symbol || 'BNB',
+    chainColor: chains.find(c => c.key === selectedChain.value)?.color || '#F0B90B',
     sealDate: new Date().toISOString().slice(0, 10).replace(/-/g, '.'),
     status: 'sealed',
     countdown: `剩余 ${activePreset.value}年`,
-    orbClass: capsuleType.value === 'self' ? 'purple' : capsuleType.value === 'world' ? 'gold' : 'pink'
+    orbClass: capsuleType.value === 'self' ? 'purple' : capsuleType.value === 'world' ? 'gold' : 'pink',
+    lockedTokens: lockedTokens.value.length > 0 ? [...lockedTokens.value] : undefined,
+    lockedNfts: lockedNfts.value.length > 0 ? [...lockedNfts.value] : undefined,
+    lockMode: lockMode.value,
+    recipient: capsuleType.value === 'other' ? recipientAddr.value : undefined,
+    unlockTime: unlockDate.value,
+    totalLockedUsd: totalLockedUsd.value > 0 ? totalLockedUsd.value : undefined,
   }
   myCapsules.value.unshift(newCap)
   capsuleTitle.value = ''
   capsuleBody.value = ''
   recipientAddr.value = ''
   attachments.value = []
+  lockedTokens.value = []
+  lockedNfts.value = []
   createStep.value = 1
 }
 
@@ -225,16 +280,49 @@ interface Capsule {
   id: number; type: 'self' | 'other' | 'world'; title: string;
   chain: string; chainColor: string; sealDate: string;
   status: 'sealed' | 'ready' | 'opened'; countdown?: string;
-  openDate?: string; orbClass?: string
+  openDate?: string; orbClass?: string;
+  lockedTokens?: LockedToken[];
+  lockedNfts?: LockedNft[];
+  lockMode?: string;
+  recipient?: string;
+  unlockTime?: string;
+  totalLockedUsd?: number;
 }
 
 const myCapsules = ref<Capsule[]>([
-  { id: 1, type: 'self', title: '写给 2026 年的自己', chain: 'SOL', chainColor: '#9945ff', sealDate: '2023.02.18', status: 'ready', countdown: '今天可以开启！', orbClass: 'purple' },
-  { id: 2, type: 'other', title: '妈妈，等我三十岁', chain: 'SUI', chainColor: '#4da2ff', sealDate: '2025.01.01', status: 'sealed', countdown: '剩余 3年 241天' },
-  { id: 3, type: 'world', title: '我对 Web3 未来的预言', chain: 'BASE', chainColor: '#0052ff', sealDate: '2024.11.20', status: 'sealed', countdown: '剩余 8年 102天' },
-  { id: 4, type: 'self', title: '2020 年的那个冬天', chain: 'SOL', chainColor: '#9945ff', sealDate: '2020.01.01', status: 'opened', openDate: '2025.01.01', orbClass: 'green' },
-  { id: 5, type: 'other', title: '给她的第一封链上情书', chain: 'AVAX', chainColor: '#e84142', sealDate: '2025.02.14', status: 'sealed', countdown: '剩余 1年 18天', orbClass: 'pink' },
-  { id: 6, type: 'self', title: '人生第一个百万目标', chain: 'BASE', chainColor: '#0052ff', sealDate: '2025.08.15', status: 'sealed', countdown: '剩余 4年 88天', orbClass: 'gold' },
+  {
+    id: 1, type: 'self', title: '写给 2026 年的自己', chain: 'BNB', chainColor: '#F0B90B', sealDate: '2023.02.18', status: 'ready', countdown: '今天可以开启！', orbClass: 'purple',
+    lockedTokens: [{ symbol: 'BNB', name: 'BNB', amount: '0.5', icon: '◆', color: '#F0B90B', decimals: 18, address: 'native', balance: '0', usdPrice: 312.5 }],
+    totalLockedUsd: 156.25, lockMode: 'time',
+  },
+  {
+    id: 2, type: 'other', title: '妈妈，等我三十岁', chain: 'BNB', chainColor: '#F0B90B', sealDate: '2025.01.01', status: 'sealed', countdown: '剩余 3年 241天',
+    lockedTokens: [
+      { symbol: 'USDT', name: 'Tether', amount: '500', icon: '₮', color: '#26A17B', decimals: 18, address: '0x55d3…', balance: '0', usdPrice: 1 },
+      { symbol: 'BNB', name: 'BNB', amount: '1', icon: '◆', color: '#F0B90B', decimals: 18, address: 'native', balance: '0', usdPrice: 312.5 },
+    ],
+    totalLockedUsd: 812.5, lockMode: 'time', recipient: '0xAb3F…8cD2',
+  },
+  {
+    id: 3, type: 'world', title: '我对 Web3 未来的预言', chain: 'BASE', chainColor: '#0052ff', sealDate: '2024.11.20', status: 'sealed', countdown: '剩余 8年 102天',
+    lockMode: 'time',
+  },
+  {
+    id: 4, type: 'self', title: '2020 年的那个冬天', chain: 'ETH', chainColor: '#627EEA', sealDate: '2020.01.01', status: 'opened', openDate: '2025.01.01', orbClass: 'green',
+    lockedNfts: [{ contractAddress: '0xBCf…1a2', tokenId: '1042', name: 'Bored Ape #1042', collection: 'BAYC', image: 'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=200&h=200&fit=crop', standard: 'BEP-721' }],
+    lockMode: 'time',
+  },
+  {
+    id: 5, type: 'other', title: '给她的第一封链上情书', chain: 'BNB', chainColor: '#F0B90B', sealDate: '2025.02.14', status: 'sealed', countdown: '剩余 1年 18天', orbClass: 'pink',
+    lockedTokens: [{ symbol: 'BUSD', name: 'Binance USD', amount: '1314', icon: 'B', color: '#F0B90B', decimals: 18, address: '0xe9e7…', balance: '0', usdPrice: 1 }],
+    lockedNfts: [{ contractAddress: '0xA1f…3b4', tokenId: '7721', name: 'CryptoPunk #7721', collection: 'Punks', image: 'https://images.unsplash.com/photo-1635322966219-b75ed372eb01?w=200&h=200&fit=crop', standard: 'BEP-721' }],
+    totalLockedUsd: 1314, lockMode: 'time', recipient: '0x7cFe…2aB1',
+  },
+  {
+    id: 6, type: 'self', title: '人生第一个百万目标', chain: 'BNB', chainColor: '#F0B90B', sealDate: '2025.08.15', status: 'sealed', countdown: '剩余 4年 88天', orbClass: 'gold',
+    lockedTokens: [{ symbol: 'BNB', name: 'BNB', amount: '10', icon: '◆', color: '#F0B90B', decimals: 18, address: 'native', balance: '0', usdPrice: 312.5 }],
+    totalLockedUsd: 3125, lockMode: 'time',
+  },
 ])
 
 const filteredCapsules = computed(() => {
@@ -463,14 +551,52 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 
                 <div class="form-section">
                   <div class="section-eye">锁入链上资产（可选）</div>
-                  <div class="asset-row">
-                    <div class="asset-add">
-                      <div class="asset-label">锁入 Token</div>
-                      <div class="asset-val gold">+ ETH / USDC</div>
+                  <div v-if="!wallet.state.value.connected" class="asset-connect-hint" @click="wallet.openModal()">
+                    <Icon name="wallet" :size="14" color="var(--text-muted)" />
+                    <span>连接钱包后可锁入 Token / NFT</span>
+                    <span class="connect-link">连接 →</span>
+                  </div>
+                  <div v-else class="asset-panel">
+                    <div class="asset-btns">
+                      <button class="asset-btn token-btn" @click="showTokenSelector = true">
+                        <span class="ab-icon gold">◆</span>
+                        <span>锁入 Token</span>
+                        <span v-if="lockedTokens.length" class="ab-badge">{{ lockedTokens.length }}</span>
+                        <span class="ab-arrow">+</span>
+                      </button>
+                      <button class="asset-btn nft-btn" @click="showNftSelector = true">
+                        <span class="ab-icon purple">✦</span>
+                        <span>锁入 NFT</span>
+                        <span v-if="lockedNfts.length" class="ab-badge nft">{{ lockedNfts.length }}</span>
+                        <span class="ab-arrow">+</span>
+                      </button>
                     </div>
-                    <div class="asset-add">
-                      <div class="asset-label">锁入 NFT</div>
-                      <div class="asset-val purple">+ 选择 NFT</div>
+
+                    <div v-if="lockedTokens.length > 0" class="locked-preview">
+                      <div class="lp-title">已锁入 Token</div>
+                      <div v-for="tk in lockedTokens" :key="tk.symbol" class="lp-token">
+                        <span class="lp-icon" :style="{ background: tk.color }">{{ tk.icon }}</span>
+                        <span class="lp-amount">{{ tk.amount }} {{ tk.symbol }}</span>
+                        <span class="lp-usd">≈ ${{ (parseFloat(tk.amount) * tk.usdPrice).toFixed(2) }}</span>
+                        <button class="lp-remove" @click="removeLockedToken(tk.symbol)">✕</button>
+                      </div>
+                    </div>
+
+                    <div v-if="lockedNfts.length > 0" class="locked-preview nft">
+                      <div class="lp-title">已锁入 NFT</div>
+                      <div v-for="nft in lockedNfts" :key="`${nft.contractAddress}:${nft.tokenId}`" class="lp-nft">
+                        <img :src="nft.image" class="lp-nft-thumb" />
+                        <div class="lp-nft-info">
+                          <div class="lp-nft-name">{{ nft.name }}</div>
+                          <div class="lp-nft-coll">{{ nft.collection }} · {{ nft.standard }}</div>
+                        </div>
+                        <button class="lp-remove" @click="removeLockedNft(`${nft.contractAddress}:${nft.tokenId}`)">✕</button>
+                      </div>
+                    </div>
+
+                    <div v-if="hasLockedAssets" class="locked-total">
+                      <span>锁入总价值</span>
+                      <span class="lt-val">${{ totalLockedUsd.toFixed(2) }}</span>
                     </div>
                   </div>
                 </div>
@@ -562,7 +688,7 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
                     </div>
                     <Transition name="ss-slide">
                       <div v-if="allowEarlyUnlock" class="unlock-desc">
-                        提前解锁需支付 <strong>0.01 ETH 惩罚金</strong>（锁入胶囊合约，到期后归收件方所有）。惩罚金越高，越能让自己坚持等待。
+                        提前解锁需支付 <strong>0.01 BNB 惩罚金</strong>（锁入胶囊合约，到期后归收件方所有）。惩罚金越高，越能让自己坚持等待。
                       </div>
                     </Transition>
                   </div>
@@ -613,13 +739,30 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
                   </div>
                 </div>
 
+                <div v-if="hasLockedAssets" class="preview-assets">
+                  <div class="section-eye">锁入资产</div>
+                  <div v-for="tk in lockedTokens" :key="tk.symbol" class="pa-token">
+                    <span class="pa-icon" :style="{ background: tk.color }">{{ tk.icon }}</span>
+                    <span>{{ tk.amount }} {{ tk.symbol }}</span>
+                    <span class="pa-usd">≈ ${{ (parseFloat(tk.amount) * tk.usdPrice).toFixed(2) }}</span>
+                  </div>
+                  <div v-for="nft in lockedNfts" :key="`${nft.contractAddress}:${nft.tokenId}`" class="pa-nft">
+                    <img :src="nft.image" class="pa-nft-img" />
+                    <span>{{ nft.name }}</span>
+                    <span class="pa-nft-std">{{ nft.standard }}</span>
+                  </div>
+                  <div v-if="totalLockedUsd > 0" class="pa-total">总锁入价值: <strong>${{ totalLockedUsd.toFixed(2) }}</strong></div>
+                </div>
+
                 <div class="checklist">
                   <div class="section-eye">封印检查清单</div>
                   <div class="check-item"><span class="ci-ok">✓</span> 内容已加密，仅你的钱包可解密</div>
                   <div class="check-item"><span class="ci-ok">✓</span> 附件已上传 IPFS，CID: Qm7x3…f2a</div>
                   <div class="check-item"><span class="ci-ok">✓</span> {{ metaLock }}设定为 {{ activePreset }} 年后</div>
                   <div class="check-item"><span class="ci-ok">✓</span> 部署链：{{ metaChain }}</div>
-                  <div v-if="allowEarlyUnlock" class="check-item"><span class="ci-warn">!</span> 提前解锁已开启，惩罚金 0.01</div>
+                  <div v-if="lockedTokens.length > 0" class="check-item"><span class="ci-ok">✓</span> {{ lockedTokens.length }} 种 Token 已授权转入合约</div>
+                  <div v-if="lockedNfts.length > 0" class="check-item"><span class="ci-ok">✓</span> {{ lockedNfts.length }} 个 NFT 已授权转移</div>
+                  <div v-if="allowEarlyUnlock" class="check-item"><span class="ci-warn">!</span> 提前解锁已开启，惩罚金 0.01 {{ chains.find(c => c.key === selectedChain)?.symbol }}</div>
                 </div>
 
                 <div class="nav-btns step3-btns">
@@ -717,17 +860,30 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
                 <span class="meta-label">加密</span>
                 <span class="meta-val green">✓ 端对端</span>
               </div>
+              <div v-if="lockedTokens.length > 0" class="meta-item">
+                <span class="meta-label">Token</span>
+                <span class="meta-val gold">{{ lockedTokens.length }} 种</span>
+              </div>
+              <div v-if="lockedNfts.length > 0" class="meta-item">
+                <span class="meta-label">NFT</span>
+                <span class="meta-val purple">{{ lockedNfts.length }} 个</span>
+              </div>
+              <div v-if="totalLockedUsd > 0" class="meta-item">
+                <span class="meta-label">资产价值</span>
+                <span class="meta-val gold">${{ totalLockedUsd.toFixed(2) }}</span>
+              </div>
             </div>
 
             <div class="gas-card">
               <div class="gas-header">
                 <span class="gas-title">费用估算</span>
-                <span class="gas-amount">≈ $0.003</span>
+                <span class="gas-amount">≈ ${{ gasEstimate.total }}</span>
               </div>
-              <div class="gas-line"><span>合约部署</span><span>$0.001</span></div>
-              <div class="gas-line"><span>IPFS 存储</span><span>$0.001</span></div>
-              <div class="gas-line"><span>链上存证</span><span>$0.001</span></div>
-              <div class="gas-line total"><span>合计</span><span class="green">$0.003</span></div>
+              <div class="gas-line"><span>合约调用</span><span>${{ gasEstimate.contract }}</span></div>
+              <div class="gas-line"><span>IPFS 存储</span><span>${{ gasEstimate.ipfs }}</span></div>
+              <div v-if="lockedTokens.length > 0" class="gas-line"><span>Token 授权 ({{ lockedTokens.length }})</span><span>${{ gasEstimate.tokenApprove }}</span></div>
+              <div v-if="lockedNfts.length > 0" class="gas-line"><span>NFT 授权 ({{ lockedNfts.length }})</span><span>${{ gasEstimate.nftApprove }}</span></div>
+              <div class="gas-line total"><span>合计</span><span class="green">${{ gasEstimate.total }}</span></div>
             </div>
 
             <div class="tip-card">
@@ -785,6 +941,16 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
                 <span class="cc-type-label">{{ cap.type === 'self' ? '自言' : cap.type === 'other' ? '他言' : '世言' }} · {{ cap.chain }}</span>
               </div>
               <div class="cc-title">{{ cap.title }}</div>
+              <div v-if="cap.lockedTokens?.length || cap.lockedNfts?.length" class="cc-assets">
+                <span v-for="tk in (cap.lockedTokens || [])" :key="tk.symbol" class="cc-asset-tag token" :style="{ borderColor: tk.color + '40' }">
+                  <span class="cc-at-icon" :style="{ color: tk.color }">{{ tk.icon }}</span>
+                  {{ tk.amount }} {{ tk.symbol }}
+                </span>
+                <span v-for="nft in (cap.lockedNfts || [])" :key="`${nft.contractAddress}:${nft.tokenId}`" class="cc-asset-tag nft">
+                  ✦ {{ nft.name }}
+                </span>
+              </div>
+              <div v-if="cap.totalLockedUsd" class="cc-value">${{ cap.totalLockedUsd.toFixed(2) }}</div>
               <div v-if="cap.status === 'ready'" class="cc-countdown ready">✨ {{ cap.countdown }}</div>
               <div v-else-if="cap.countdown" class="cc-countdown sealed">
                 <Icon name="lock" :size="11" /> {{ cap.countdown }}
@@ -1024,6 +1190,19 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
         </div>
       </Transition>
     </Teleport>
+    <!-- Token / NFT Selectors -->
+    <TokenSelector
+      :visible="showTokenSelector"
+      :wallet-connected="wallet.state.value.connected"
+      @close="showTokenSelector = false"
+      @confirm="onTokensConfirmed"
+    />
+    <NftSelector
+      :visible="showNftSelector"
+      :wallet-connected="wallet.state.value.connected"
+      @close="showNftSelector = false"
+      @confirm="onNftsConfirmed"
+    />
   </div>
 </template>
 
@@ -1298,18 +1477,81 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 .media-add:hover { border-color: var(--ss-border-bright); color: var(--text-secondary); background: var(--ss-card-hover); }
 .media-add span { font-size: 11px; font-weight: 500; }
 
-/* Assets */
-.asset-row { display: flex; gap: 10px; flex-wrap: wrap; }
-.asset-add {
-  background: var(--ss-card); border: 1px solid var(--ss-border);
-  border-radius: var(--ss-r-sm); padding: 10px 14px;
-  flex: 1; min-width: 140px; cursor: pointer; transition: all 0.2s;
+/* Assets — Connect Hint */
+.asset-connect-hint {
+  display: flex; align-items: center; gap: 8px; padding: 14px 16px;
+  background: rgba(99,179,237,0.04); border: 1px dashed rgba(99,179,237,0.2);
+  border-radius: var(--ss-r-sm); cursor: pointer; transition: all 0.2s;
+  font-size: 12px; color: var(--text-muted);
 }
-.asset-add:hover { border-color: var(--ss-border-bright); }
-.asset-label { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
-.asset-val { font-family: var(--font-mono); font-size: 13px; }
-.asset-val.gold { color: var(--star-gold); }
-.asset-val.purple { color: var(--star-purple); }
+.asset-connect-hint:hover { border-color: rgba(99,179,237,0.4); background: rgba(99,179,237,0.06); }
+.connect-link { margin-left: auto; color: var(--star-blue); font-weight: 600; }
+
+/* Assets — Panel */
+.asset-panel { display: flex; flex-direction: column; gap: 10px; }
+.asset-btns { display: flex; gap: 10px; }
+.asset-btn {
+  flex: 1; display: flex; align-items: center; gap: 8px; padding: 12px 14px;
+  background: var(--ss-card); border: 1px solid var(--ss-border); border-radius: var(--ss-r-sm);
+  cursor: pointer; transition: all 0.25s; font-size: 13px; color: var(--text-primary); font-weight: 500;
+}
+.asset-btn:hover { border-color: var(--ss-border-bright); transform: translateY(-1px); }
+.ab-icon { font-size: 15px; font-weight: 700; }
+.ab-icon.gold { color: var(--star-gold); }
+.ab-icon.purple { color: var(--star-purple); }
+.ab-badge { font-size: 10px; padding: 1px 6px; border-radius: 8px; background: rgba(251,191,36,0.15); color: var(--star-gold); font-weight: 700; }
+.ab-badge.nft { background: rgba(167,139,250,0.15); color: var(--star-purple); }
+.ab-arrow { margin-left: auto; color: var(--text-muted); font-size: 16px; }
+
+/* Locked Preview */
+.locked-preview { padding: 10px 12px; border-radius: var(--ss-r-sm); background: rgba(251,191,36,0.03); border: 1px solid rgba(251,191,36,0.1); }
+.locked-preview.nft { background: rgba(167,139,250,0.03); border-color: rgba(167,139,250,0.1); }
+.lp-title { font-size: 10px; color: var(--text-muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; }
+.lp-token { display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: 13px; color: var(--text-primary); }
+.lp-icon { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; color: white; font-weight: 700; flex-shrink: 0; }
+.lp-amount { font-weight: 600; font-family: var(--font-mono); }
+.lp-usd { margin-left: auto; font-size: 11px; color: var(--text-muted); }
+.lp-remove { color: var(--text-muted); font-size: 11px; cursor: pointer; margin-left: 6px; opacity: 0.5; }
+.lp-remove:hover { opacity: 1; color: var(--star-pink); }
+.lp-nft { display: flex; align-items: center; gap: 10px; padding: 5px 0; }
+.lp-nft-thumb { width: 36px; height: 36px; border-radius: 8px; object-fit: cover; flex-shrink: 0; }
+.lp-nft-info { flex: 1; min-width: 0; }
+.lp-nft-name { font-size: 12px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lp-nft-coll { font-size: 10px; color: var(--text-muted); }
+.locked-total {
+  display: flex; justify-content: space-between; padding: 10px 12px;
+  border-radius: var(--ss-r-sm); background: rgba(251,191,36,0.06);
+  border: 1px solid rgba(251,191,36,0.15);
+  font-size: 12px; color: var(--text-secondary); font-weight: 500;
+}
+.lt-val { color: var(--star-gold); font-weight: 700; font-family: var(--font-mono); font-size: 14px; }
+
+/* Preview Assets (Step 3) */
+.preview-assets { margin-bottom: 16px; padding: 12px; border-radius: var(--ss-r-sm); background: rgba(251,191,36,0.03); border: 1px solid rgba(251,191,36,0.1); }
+.pa-token { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; color: var(--text-primary); }
+.pa-icon { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; color: white; font-weight: 700; }
+.pa-usd { margin-left: auto; font-size: 11px; color: var(--text-muted); }
+.pa-nft { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; color: var(--text-primary); }
+.pa-nft-img { width: 24px; height: 24px; border-radius: 6px; object-fit: cover; }
+.pa-nft-std { margin-left: auto; font-size: 10px; color: var(--text-muted); }
+.pa-total { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(251,191,36,0.15); font-size: 12px; color: var(--text-secondary); }
+.pa-total strong { color: var(--star-gold); font-family: var(--font-mono); }
+
+/* Capsule Card — Asset Tags */
+.cc-assets { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0 4px; }
+.cc-asset-tag {
+  font-size: 10px; padding: 2px 7px; border-radius: 6px; display: flex; align-items: center; gap: 3px;
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+  color: var(--text-secondary); white-space: nowrap;
+}
+.cc-asset-tag.token { font-family: var(--font-mono); }
+.cc-asset-tag.nft { color: var(--star-purple); border-color: rgba(167,139,250,0.2); font-size: 9px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+.cc-at-icon { font-size: 10px; }
+.cc-value { font-size: 12px; font-weight: 700; color: var(--star-gold); font-family: var(--font-mono); margin-bottom: 2px; }
+
+/* Sidebar meta colors */
+.meta-val.gold { color: var(--star-gold); }
+.meta-val.purple { color: var(--star-purple); }
 
 /* Lock modes */
 .lock-modes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px; }
