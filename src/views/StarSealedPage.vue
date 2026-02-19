@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useI18n } from '../stores/i18n'
 import Icon from '../components/icons/Icon.vue'
 
@@ -29,6 +29,31 @@ const capsuleTypes = [
 const capsuleTitle = ref('')
 const capsuleBody = ref('')
 const recipientAddr = ref('')
+const editorRef = ref<HTMLTextAreaElement>()
+const showEmoji = ref(false)
+
+const emojiList = ['😊','😢','🥰','🔥','✨','💎','🚀','🌙','⭐','💜','💛','🌏','🎉','🤝','📜','🔒','🗝️','💌','🕊️','🌌','❄️','☀️','🌊','🎵','🧠','👑','💪','🙏']
+
+function insertMarkdown(prefix: string, suffix: string = '') {
+  const el = editorRef.value
+  if (!el) return
+  const start = el.selectionStart
+  const end = el.selectionEnd
+  const text = capsuleBody.value
+  const selected = text.slice(start, end)
+  const insert = prefix + (selected || '文本') + suffix
+  capsuleBody.value = text.slice(0, start) + insert + text.slice(end)
+  nextTick(() => { el.focus(); el.setSelectionRange(start + prefix.length, start + prefix.length + (selected || '文本').length) })
+}
+
+function insertEmoji(emoji: string) {
+  const el = editorRef.value
+  if (!el) return
+  const pos = el.selectionStart
+  capsuleBody.value = capsuleBody.value.slice(0, pos) + emoji + capsuleBody.value.slice(pos)
+  showEmoji.value = false
+  nextTick(() => { el.focus(); el.setSelectionRange(pos + emoji.length, pos + emoji.length) })
+}
 
 /* ═══ Create: Lock settings ═══ */
 const lockMode = ref<'time' | 'event' | 'multisig' | 'random'>('time')
@@ -74,13 +99,56 @@ const metaChain = computed(() => chains.find(c => c.key === selectedChain.value)
 /* ═══ Seal action ═══ */
 const showSealOverlay = ref(false)
 const sealPhase = ref(0)
+
+const ttsTexts: Record<number, string> = {
+  1: '正在连接黑洞，引力场已锁定，开始吸入胶囊。',
+  2: '胶囊正在被吞噬，加密内容，上传星际文件系统，写入智能合约。',
+  3: '封印完成，你的记忆已被宇宙保管，铸造纪念NFT。',
+  4: '星封成功，等待开启的那一天。'
+}
+
+function speakPhase(phase: number) {
+  if (!('speechSynthesis' in window)) return
+  window.speechSynthesis.cancel()
+  const u = new SpeechSynthesisUtterance(ttsTexts[phase])
+  u.lang = 'zh-CN'
+  u.rate = 0.9
+  u.pitch = 1.2
+  const voices = window.speechSynthesis.getVoices()
+  const female = voices.find(v => v.lang.startsWith('zh') && /female|xiaoxiao|yaoyao|lili|huihui/i.test(v.name))
+    || voices.find(v => v.lang.startsWith('zh'))
+  if (female) u.voice = female
+  window.speechSynthesis.speak(u)
+}
+
 function sealCapsule() {
   showSealOverlay.value = true
   sealPhase.value = 1
-  setTimeout(() => { sealPhase.value = 2 }, 1200)
-  setTimeout(() => { sealPhase.value = 3 }, 3000)
-  setTimeout(() => { sealPhase.value = 4 }, 4500)
-  setTimeout(() => { showSealOverlay.value = false; sealPhase.value = 0; activeTab.value = 'mine' }, 6000)
+  speakPhase(1)
+  setTimeout(() => { sealPhase.value = 2; speakPhase(2) }, 1200)
+  setTimeout(() => { sealPhase.value = 3; speakPhase(3) }, 3000)
+  setTimeout(() => { sealPhase.value = 4; speakPhase(4) }, 4500)
+  setTimeout(() => { showSealOverlay.value = false; sealPhase.value = 0; activeTab.value = 'mine'; window.speechSynthesis?.cancel() }, 6000)
+}
+
+function publishCapsule() {
+  if (!capsuleTitle.value.trim() && !capsuleBody.value.trim()) return
+  const newCap: Capsule = {
+    id: Date.now(),
+    type: capsuleType.value,
+    title: capsuleTitle.value || '未命名胶囊',
+    chain: chains.find(c => c.key === selectedChain.value)?.symbol || 'SOL',
+    chainColor: chains.find(c => c.key === selectedChain.value)?.color || '#9945ff',
+    sealDate: new Date().toISOString().slice(0, 10).replace(/-/g, '.'),
+    status: 'sealed',
+    countdown: `剩余 ${activePreset.value}年`,
+    orbClass: capsuleType.value === 'self' ? 'purple' : capsuleType.value === 'world' ? 'gold' : 'pink'
+  }
+  myCapsules.value.unshift(newCap)
+  capsuleTitle.value = ''
+  capsuleBody.value = ''
+  recipientAddr.value = ''
+  createStep.value = 1
 }
 
 /* ═══ My Capsules ═══ */
@@ -188,20 +256,18 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
           <div class="create-main">
             <!-- Steps -->
             <div class="steps">
-              <div class="step-item" :class="{ active: createStep === 1, done: createStep > 1 }" @click="goStep(1)">
-                <div class="step-num">{{ createStep > 1 ? '✓' : '1' }}</div>
-                <div class="step-label">内容</div>
-              </div>
-              <div class="step-line" :class="{ done: createStep > 1 }"></div>
-              <div class="step-item" :class="{ active: createStep === 2, done: createStep > 2 }" @click="goStep(2)">
-                <div class="step-num">{{ createStep > 2 ? '✓' : '2' }}</div>
-                <div class="step-label">封印设置</div>
-              </div>
-              <div class="step-line" :class="{ done: createStep > 2 }"></div>
-              <div class="step-item" :class="{ active: createStep === 3 }" @click="goStep(3)">
-                <div class="step-num">3</div>
-                <div class="step-label">确认投入</div>
-              </div>
+              <button class="step-pill" :class="{ active: createStep === 1, done: createStep > 1 }" @click="goStep(1)">
+                <span class="sp-num">{{ createStep > 1 ? '✓' : '1' }}</span>
+                <span class="sp-text">内容</span>
+              </button>
+              <button class="step-pill" :class="{ active: createStep === 2, done: createStep > 2 }" @click="goStep(2)">
+                <span class="sp-num">{{ createStep > 2 ? '✓' : '2' }}</span>
+                <span class="sp-text">封印设置</span>
+              </button>
+              <button class="step-pill" :class="{ active: createStep === 3 }" @click="goStep(3)">
+                <span class="sp-num">3</span>
+                <span class="sp-text">确认投入</span>
+              </button>
             </div>
 
             <!-- STEP 1 -->
@@ -244,21 +310,34 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
                   <div class="form-label">信件 / 内容</div>
                   <div class="editor-wrap">
                     <div class="editor-toolbar">
-                      <button class="tb-btn"><b>B</b></button>
-                      <button class="tb-btn"><i>I</i></button>
-                      <button class="tb-btn">H</button>
+                      <button class="tb-btn" title="粗体" @click="insertMarkdown('**', '**')"><b>B</b></button>
+                      <button class="tb-btn" title="斜体" @click="insertMarkdown('*', '*')"><i>I</i></button>
+                      <button class="tb-btn" title="标题" @click="insertMarkdown('## ', '')">H</button>
                       <div class="tb-sep"></div>
-                      <button class="tb-btn">
+                      <button class="tb-btn" title="引用" @click="insertMarkdown('> ', '')">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"/><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"/></svg>
                       </button>
-                      <button class="tb-btn">
+                      <button class="tb-btn" title="代码" @click="insertMarkdown('`', '`')">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
                       </button>
                       <div class="tb-sep"></div>
-                      <button class="tb-btn"><Icon name="link" :size="12" /></button>
-                      <button class="tb-btn"><Icon name="image" :size="12" /></button>
+                      <button class="tb-btn" title="链接" @click="insertMarkdown('[', '](url)')"><Icon name="link" :size="12" /></button>
+                      <button class="tb-btn" title="图片" @click="insertMarkdown('![', '](url)')"><Icon name="image" :size="12" /></button>
+                      <div class="tb-sep"></div>
+                      <div class="emoji-wrapper">
+                        <button class="tb-btn" title="表情" @click="showEmoji = !showEmoji">😊</button>
+                        <Transition name="ss-fade">
+                          <div v-if="showEmoji" class="emoji-picker">
+                            <div class="emoji-backdrop" @click="showEmoji = false"></div>
+                            <div class="emoji-grid">
+                              <button v-for="e in emojiList" :key="e" class="emoji-btn" @click="insertEmoji(e)">{{ e }}</button>
+                            </div>
+                          </div>
+                        </Transition>
+                      </div>
                     </div>
                     <textarea
+                      ref="editorRef"
                       v-model="capsuleBody"
                       class="editor-area"
                       placeholder="亲爱的未来的我，&#10;&#10;此刻是 2026 年的冬天，窗外有雪……&#10;&#10;（这些文字将被封印在星际，待到那一天，宇宙会将它们归还给你）"
@@ -405,13 +484,13 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
                   <div v-if="allowEarlyUnlock" class="check-item"><span class="ci-warn">!</span> 提前解锁已开启，惩罚金 0.01</div>
                 </div>
 
-                <div class="nav-btns">
+                <div class="nav-btns step3-btns">
                   <button class="btn-back" @click="goStep(2)">← 返回</button>
+                  <button class="seal-btn inline" @click="publishCapsule(); sealCapsule()">
+                    <Icon name="hexagon" :size="16" />
+                    投入黑洞，完成封印
+                  </button>
                 </div>
-                <button class="seal-btn" @click="sealCapsule">
-                  <Icon name="hexagon" :size="18" />
-                  投入黑洞，完成封印
-                </button>
               </div>
             </Transition>
           </div>
@@ -587,14 +666,21 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
     <Transition name="ss-fade" mode="out-in">
       <div v-if="activeTab === 'blackhole'" key="blackhole" class="ss-panel">
         <div class="open-scene">
-          <div class="blackhole-container">
+          <div class="blackhole-container" @click="sealCapsule">
+            <div class="bh-nebula"></div>
             <div class="bh-glow"></div>
             <div class="accretion"></div>
+            <div class="bh-spiral s1"></div>
+            <div class="bh-spiral s2"></div>
             <div class="photon-ring"></div>
             <div class="bh-inner-ring"></div>
-            <div class="orbit-p p1"></div>
-            <div class="orbit-p p2"></div>
-            <div class="orbit-p p3"></div>
+            <div class="bh-particle" v-for="n in 12" :key="'bp'+n" :style="{
+              animationDuration: (5 + n * 0.7) + 's',
+              animationDelay: (n * 0.4) + 's',
+              '--bp-dist': (60 + n * 8) + 'px',
+              '--bp-color': ['#fbbf24','#60a5fa','#a78bfa','#f472b6','#34d399','#22d3ee','#fbbf24','#60a5fa','#a78bfa','#f472b6','#34d399','#22d3ee'][n-1],
+              '--bp-size': (1.5 + Math.random() * 2.5) + 'px'
+            }"></div>
             <div class="bh-void">
               <div class="bh-text">点击<br>开启</div>
             </div>
@@ -617,7 +703,8 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 
             <div class="open-actions">
               <button class="btn-share"><Icon name="link" :size="13" /> 分享开启仪式</button>
-              <button class="seal-btn sm" @click="sealCapsule">
+              <button class="btn-open-capsule" @click="sealCapsule">
+                <span class="boc-glow"></span>
                 <Icon name="hexagon" :size="15" /> 开启胶囊
               </button>
             </div>
@@ -856,33 +943,40 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
   align-items: start;
 }
 
-/* Steps */
-.steps { display: flex; align-items: center; margin-bottom: 32px; }
-.step-item {
-  display: flex; align-items: center; gap: 8px; cursor: pointer;
+/* Steps — pill style */
+.steps { display: flex; gap: 8px; margin-bottom: 32px; }
+.step-pill {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 18px; border-radius: 99px;
+  background: var(--ss-card); border: 1.5px solid var(--ss-border);
+  color: var(--text-muted); font-size: 12px; font-weight: 500;
+  cursor: pointer; transition: all 0.3s; font-family: inherit;
 }
-.step-num {
-  width: 28px; height: 28px; border-radius: 50%;
+.step-pill:hover { border-color: var(--ss-border-bright); color: var(--text-secondary); }
+.sp-num {
+  width: 22px; height: 22px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  font-size: 12px; font-weight: 600;
-  border: 1.5px solid var(--ss-border);
-  color: var(--text-muted);
+  font-size: 11px; font-weight: 700;
+  background: rgba(99,179,237,0.08); color: var(--text-muted);
   transition: all 0.3s;
 }
-.step-item.active .step-num {
-  background: var(--star-blue); border-color: var(--star-blue); color: white;
-  box-shadow: 0 0 16px rgba(99,179,237,0.4);
+.sp-text { transition: color 0.3s; }
+.step-pill.active {
+  border-color: var(--star-blue); background: rgba(99,179,237,0.08);
+  box-shadow: 0 0 20px rgba(99,179,237,0.15);
 }
-.step-item.done .step-num {
-  background: rgba(104,211,145,0.15); border-color: var(--star-green); color: var(--star-green);
+.step-pill.active .sp-num {
+  background: var(--star-blue); color: white;
+  box-shadow: 0 0 12px rgba(99,179,237,0.5);
 }
-.step-label { font-size: 12px; color: var(--text-muted); transition: color 0.3s; }
-.step-item.active .step-label { color: var(--text-primary); }
-.step-item.done .step-label { color: var(--text-secondary); }
-.step-line {
-  flex: 1; height: 1px; background: var(--ss-border); margin: 0 12px;
+.step-pill.active .sp-text { color: var(--text-primary); }
+.step-pill.done {
+  border-color: rgba(104,211,145,0.3); background: rgba(104,211,145,0.05);
 }
-.step-line.done { background: rgba(104,211,145,0.3); }
+.step-pill.done .sp-num {
+  background: rgba(104,211,145,0.15); color: var(--star-green);
+}
+.step-pill.done .sp-text { color: var(--text-secondary); }
 
 /* Section eye */
 .section-eye {
@@ -947,7 +1041,16 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 .ss-input:focus { border-color: var(--ss-border-bright); }
 .ss-input::placeholder { color: var(--text-muted); }
 .ss-input.addr { padding-left: 32px; font-family: var(--font-mono); font-size: 12px; }
-.ss-input.date-pick { font-family: var(--font-mono); font-size: 12px; cursor: pointer; color-scheme: dark; }
+.ss-input.date-pick {
+  font-family: var(--font-mono); font-size: 13px; cursor: pointer; color-scheme: dark;
+  background: linear-gradient(135deg, var(--ss-card), rgba(99,179,237,0.04));
+  border: 1.5px solid rgba(99,179,237,0.2); padding: 14px 16px;
+  letter-spacing: 1px; transition: all 0.25s;
+}
+.ss-input.date-pick:focus {
+  border-color: var(--star-blue);
+  box-shadow: 0 0 20px rgba(99,179,237,0.15);
+}
 
 .addr-wrap { position: relative; }
 .addr-prefix {
@@ -980,6 +1083,28 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
   color: var(--text-primary); font-size: 15px; line-height: 1.75; resize: none;
 }
 .editor-area::placeholder { color: var(--text-muted); font-style: italic; }
+/* Emoji picker */
+.emoji-wrapper { position: relative; }
+.emoji-picker {
+  position: absolute; top: 36px; left: -80px; z-index: 100;
+}
+.emoji-backdrop {
+  position: fixed; inset: 0; z-index: -1;
+}
+.emoji-grid {
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px;
+  padding: 10px; background: var(--ss-card); border: 1px solid var(--ss-border);
+  border-radius: var(--ss-r); box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  width: 260px;
+  backdrop-filter: var(--blur-card);
+}
+.emoji-btn {
+  width: 32px; height: 32px; border: none; background: transparent;
+  border-radius: 6px; font-size: 18px; cursor: pointer; transition: all 0.15s;
+  display: flex; align-items: center; justify-content: center;
+}
+.emoji-btn:hover { background: rgba(99,179,237,0.15); transform: scale(1.2); }
+
 .editor-footer {
   display: flex; align-items: center; justify-content: space-between;
   padding: 8px 14px; border-top: 1px solid var(--ss-border);
@@ -1023,15 +1148,19 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 .lm-desc { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
 
 /* Presets */
-.presets { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.presets { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 .preset-btn {
-  padding: 5px 12px; background: transparent;
+  padding: 7px 16px; background: rgba(99,179,237,0.04);
   border: 1px solid var(--ss-border); border-radius: 99px;
   font-size: 11px; color: var(--text-secondary);
-  cursor: pointer; transition: all 0.2s; font-family: var(--font-mono);
+  cursor: pointer; transition: all 0.25s; font-family: var(--font-mono);
 }
-.preset-btn:hover, .preset-btn.active {
-  background: rgba(99,179,237,0.1); border-color: rgba(99,179,237,0.4); color: var(--star-blue);
+.preset-btn:hover {
+  background: rgba(99,179,237,0.08); border-color: rgba(99,179,237,0.3); color: var(--star-blue);
+}
+.preset-btn.active {
+  background: rgba(99,179,237,0.12); border-color: var(--star-blue); color: var(--star-blue);
+  box-shadow: 0 0 14px rgba(99,179,237,0.15);
 }
 
 /* Unlock */
@@ -1076,40 +1205,75 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 .chain-fee { font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); margin-top: 2px; }
 
 /* Nav btns */
-.nav-btns { display: flex; gap: 10px; margin-top: 16px; }
+.nav-btns { display: flex; gap: 12px; margin-top: 16px; }
 .spacer { flex: 2; }
 .btn-back {
-  flex: 1; padding: 11px;
-  background: transparent; border: 1px solid var(--ss-border);
-  border-radius: var(--ss-r-sm); color: var(--text-secondary);
-  font-size: 13px; cursor: pointer; transition: all 0.2s;
+  flex: 1; padding: 12px 20px;
+  background: rgba(99,179,237,0.06); border: 1px solid rgba(99,179,237,0.15);
+  border-radius: 99px; color: var(--text-secondary);
+  font-size: 13px; cursor: pointer; transition: all 0.25s; font-family: inherit;
 }
-.btn-back:hover { border-color: var(--ss-border-bright); color: var(--text-primary); }
+.btn-back:hover {
+  border-color: var(--star-blue); color: var(--text-primary);
+  background: rgba(99,179,237,0.1);
+}
 .btn-next {
-  flex: 2; padding: 11px;
-  background: var(--star-blue); border: none;
-  border-radius: var(--ss-r-sm); color: white;
-  font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.25s;
-  box-shadow: 0 4px 16px rgba(99,179,237,0.25);
+  flex: 2; padding: 12px 20px;
+  background: linear-gradient(135deg, var(--star-blue), rgba(99,179,237,0.8)); border: none;
+  border-radius: 99px; color: white;
+  font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.3s;
+  box-shadow: 0 4px 20px rgba(99,179,237,0.3);
+  font-family: inherit; position: relative; overflow: hidden;
 }
-.btn-next:hover { background: var(--accent-blue); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(99,179,237,0.35); }
+.btn-next::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.15), transparent);
+}
+.btn-next:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(99,179,237,0.4); }
+.step3-btns .btn-back { flex: 0 0 auto; }
+.step3-btns .seal-btn.inline { flex: 1; }
 
 /* Seal btn */
 .seal-btn {
-  width: 100%; padding: 16px;
-  background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
-  border: none; border-radius: var(--ss-r); color: white;
-  font-size: 15px; font-weight: 600; cursor: pointer;
+  width: 100%; padding: 14px 24px;
+  background: linear-gradient(135deg, #7c3aed, #2563eb, #0891b2);
+  background-size: 200% 200%; animation: sealBtnShift 3s ease infinite;
+  border: none; border-radius: 99px; color: white;
+  font-size: 14px; font-weight: 600; cursor: pointer;
   display: flex; align-items: center; justify-content: center; gap: 10px;
-  transition: all 0.3s; box-shadow: 0 8px 32px rgba(29,78,216,0.3);
-  margin-top: 16px; position: relative; overflow: hidden;
+  transition: all 0.3s; box-shadow: 0 4px 24px rgba(99,58,237,0.3);
+  position: relative; overflow: hidden; font-family: inherit;
 }
 .seal-btn::before {
   content: ''; position: absolute; inset: 0;
-  background: linear-gradient(135deg, rgba(255,255,255,0.1), transparent);
+  background: linear-gradient(135deg, rgba(255,255,255,0.12), transparent 60%);
 }
-.seal-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(29,78,216,0.45); }
-.seal-btn.sm { max-width: 200px; padding: 12px 24px; font-size: 14px; }
+.seal-btn:hover { transform: translateY(-2px) scale(1.02); box-shadow: 0 8px 36px rgba(99,58,237,0.45); }
+.seal-btn.inline { width: auto; margin-top: 0; }
+@keyframes sealBtnShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Open capsule btn */
+.btn-open-capsule {
+  padding: 12px 28px; border: none; border-radius: 99px; color: white;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  background: linear-gradient(135deg, #059669, #0891b2, #2563eb);
+  background-size: 200% 200%; animation: sealBtnShift 3s ease infinite;
+  display: flex; align-items: center; gap: 8px;
+  transition: all 0.3s; position: relative; overflow: hidden;
+  box-shadow: 0 4px 20px rgba(5,150,105,0.3);
+  font-family: inherit;
+}
+.btn-open-capsule:hover {
+  transform: translateY(-2px); box-shadow: 0 8px 32px rgba(5,150,105,0.45);
+}
+.boc-glow {
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.12), transparent 60%);
+}
 
 /* Preview step 3 */
 .preview-capsule {
@@ -1461,31 +1625,46 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 .capsule-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
 .capsule-card {
   background: var(--ss-card); border: 1px solid var(--ss-border);
-  border-radius: var(--ss-r); overflow: hidden; cursor: pointer;
-  transition: all 0.3s; position: relative;
+  border-radius: 16px; overflow: hidden; cursor: pointer;
+  transition: all 0.35s; position: relative;
 }
-.capsule-card:hover { border-color: var(--ss-border-bright); transform: translateY(-4px); box-shadow: 0 0 40px rgba(99,179,237,0.15); }
+.capsule-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--star-blue), var(--star-purple), transparent);
+  opacity: 0; transition: opacity 0.3s;
+}
+.capsule-card:hover::before { opacity: 0.7; }
+.capsule-card:hover { border-color: var(--ss-border-bright); transform: translateY(-4px); box-shadow: 0 8px 40px rgba(99,179,237,0.12); }
 .cc-visual {
-  height: 130px; position: relative; overflow: hidden;
+  height: 120px; position: relative; overflow: hidden;
   display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(135deg, #0f1f3d, #0a1628);
+  background: linear-gradient(135deg, rgba(15,31,61,0.6), rgba(10,22,40,0.8));
 }
-.cc-visual.other, .cc-visual.purple { background: linear-gradient(135deg, #0f1f3d, #1a0d3d); }
-.cc-visual.world { background: linear-gradient(135deg, #1a0f1a, #0f1a2d); }
-.cc-visual.gold { background: linear-gradient(135deg, #0f1a2d, #1a1a0f); }
-.cc-visual.pink { background: linear-gradient(135deg, #1a0f0f, #0f1525); }
-.cc-visual.green { background: linear-gradient(135deg, #0f1a0f, #0f1f0f); opacity: 0.7; }
-.cc-ring-1 { position: absolute; width: 80px; height: 80px; border-radius: 50%; border: 1px solid rgba(99,179,237,0.2); animation: ringPulse 3s ease-in-out infinite; }
-.cc-ring-2 { position: absolute; width: 105px; height: 105px; border-radius: 50%; border: 1px solid rgba(99,179,237,0.12); animation: ringPulse 3s 0.5s ease-in-out infinite; }
+.cc-visual.other, .cc-visual.purple { background: linear-gradient(135deg, rgba(15,31,61,0.6), rgba(26,13,61,0.8)); }
+.cc-visual.world { background: linear-gradient(135deg, rgba(26,15,26,0.6), rgba(15,26,45,0.8)); }
+.cc-visual.gold { background: linear-gradient(135deg, rgba(15,26,45,0.6), rgba(26,26,15,0.8)); }
+.cc-visual.pink { background: linear-gradient(135deg, rgba(26,15,15,0.6), rgba(15,21,37,0.8)); }
+.cc-visual.green { background: linear-gradient(135deg, rgba(15,26,15,0.6), rgba(15,31,15,0.8)); opacity: 0.7; }
+.cc-ring-1 {
+  position: absolute; width: 80px; height: 80px; border-radius: 50%;
+  border: 1px solid rgba(99,179,237,0.15);
+  animation: ringPulse 3s ease-in-out infinite;
+}
+.cc-ring-2 {
+  position: absolute; width: 105px; height: 105px; border-radius: 50%;
+  border: 1px solid rgba(99,179,237,0.08);
+  animation: ringPulse 3s 0.5s ease-in-out infinite;
+}
+@keyframes ringPulse { 0%,100% { opacity: 0.3; transform: scale(1); } 50% { opacity: 0.7; transform: scale(1.05); } }
 .cc-orb {
-  width: 50px; height: 50px; border-radius: 50%;
+  width: 44px; height: 44px; border-radius: 50%;
   background: radial-gradient(circle at 35% 30%, #93c5fd, #1d4ed8);
-  box-shadow: 0 0 30px rgba(99,179,237,0.3); z-index: 2; position: relative;
+  box-shadow: 0 0 25px rgba(99,179,237,0.35), 0 0 60px rgba(99,179,237,0.1); z-index: 2; position: relative;
 }
-.cc-orb.purple { background: radial-gradient(circle at 35% 30%, #ddd6fe, #7c3aed); box-shadow: 0 0 30px rgba(183,148,244,0.3); }
-.cc-orb.gold { background: radial-gradient(circle at 35% 30%, #fef3c7, #d97706); box-shadow: 0 0 30px rgba(251,176,64,0.3); }
-.cc-orb.green { background: radial-gradient(circle at 35% 30%, #d1fae5, #059669); box-shadow: 0 0 30px rgba(104,211,145,0.3); width: 40px; height: 40px; opacity: 0.6; }
-.cc-orb.pink { background: radial-gradient(circle at 35% 30%, #fce7f3, #db2777); box-shadow: 0 0 30px rgba(246,135,179,0.3); }
+.cc-orb.purple { background: radial-gradient(circle at 35% 30%, #ddd6fe, #7c3aed); box-shadow: 0 0 25px rgba(183,148,244,0.35); }
+.cc-orb.gold { background: radial-gradient(circle at 35% 30%, #fef3c7, #d97706); box-shadow: 0 0 25px rgba(251,176,64,0.35); }
+.cc-orb.green { background: radial-gradient(circle at 35% 30%, #d1fae5, #059669); box-shadow: 0 0 25px rgba(104,211,145,0.35); width: 36px; height: 36px; opacity: 0.7; }
+.cc-orb.pink { background: radial-gradient(circle at 35% 30%, #fce7f3, #db2777); box-shadow: 0 0 25px rgba(246,135,179,0.35); }
 
 .cc-status {
   position: absolute; top: 10px; right: 10px;
@@ -1504,13 +1683,21 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 .cc-type-label { font-size: 10px; color: var(--text-muted); letter-spacing: 1px; text-transform: uppercase; font-family: var(--font-mono); }
 .cc-title { font-size: 15px; font-weight: 600; margin-bottom: 6px; line-height: 1.35; }
 .cc-countdown {
-  display: inline-flex; align-items: center; gap: 4px;
+  display: inline-flex; align-items: center; gap: 5px;
   font-family: var(--font-mono); font-size: 11px;
-  padding: 3px 8px; border-radius: 4px; margin-top: 6px;
+  padding: 4px 10px; border-radius: 99px; margin-top: 8px;
 }
-.cc-countdown.sealed { color: var(--star-gold); background: rgba(251,176,64,0.08); }
-.cc-countdown.ready { color: var(--star-green); background: rgba(104,211,145,0.08); }
-.cc-opened { font-size: 11px; color: var(--star-green); margin-top: 6px; display: flex; align-items: center; gap: 4px; }
+.cc-countdown.sealed {
+  color: var(--star-gold); background: rgba(251,176,64,0.06);
+  border: 1px solid rgba(251,176,64,0.12);
+}
+.cc-countdown.ready {
+  color: var(--star-green); background: rgba(104,211,145,0.06);
+  border: 1px solid rgba(104,211,145,0.12);
+  animation: readyPulse 2s ease-in-out infinite;
+}
+@keyframes readyPulse { 0%,100% { box-shadow: 0 0 0 rgba(104,211,145,0); } 50% { box-shadow: 0 0 12px rgba(104,211,145,0.15); } }
+.cc-opened { font-size: 11px; color: var(--star-green); margin-top: 8px; display: flex; align-items: center; gap: 4px; opacity: 0.8; }
 .cc-meta { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
 .cc-date { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); }
 .cc-chain { font-family: var(--font-mono); font-size: 10px; font-weight: 600; }
@@ -1520,9 +1707,18 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 .blackhole-container {
   width: 300px; height: 300px; position: relative; margin-bottom: 40px; cursor: pointer;
 }
+.bh-nebula {
+  position: absolute; inset: -50px; border-radius: 50%;
+  background: radial-gradient(ellipse at 40% 35%, rgba(183,148,244,0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 65% 70%, rgba(251,176,64,0.06) 0%, transparent 45%),
+    radial-gradient(ellipse at 50% 50%, rgba(99,179,237,0.04) 0%, transparent 60%);
+  animation: bhNebulaPulse 6s ease-in-out infinite alternate;
+  filter: blur(15px);
+}
+@keyframes bhNebulaPulse { from { opacity: 0.4; transform: scale(1); } to { opacity: 0.8; transform: scale(1.05) rotate(8deg); } }
 .bh-glow {
-  position: absolute; inset: -20px; border-radius: 50%;
-  background: radial-gradient(circle, rgba(99,179,237,0.08) 0%, transparent 70%);
+  position: absolute; inset: -25px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(251,176,64,0.1) 0%, rgba(99,179,237,0.06) 40%, transparent 70%);
   animation: glowPulse 3s ease-in-out infinite;
 }
 @keyframes glowPulse { 0%,100% { opacity: 0.5; } 50% { opacity: 1; } }
@@ -1539,36 +1735,62 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
   animation: diskSpin 8s linear infinite; filter: blur(8px); opacity: 0.7;
 }
 @keyframes diskSpin { to { transform: rotate(360deg); } }
+.bh-spiral {
+  position: absolute; inset: -5px; border-radius: 50%;
+  border: none; opacity: 0.4;
+  background: conic-gradient(from 0deg,
+    transparent 0deg, rgba(251,176,64,0.3) 20deg, transparent 60deg,
+    transparent 120deg, rgba(183,148,244,0.25) 150deg, transparent 200deg,
+    transparent 240deg, rgba(99,179,237,0.2) 280deg, transparent 340deg);
+  animation: diskSpin 12s linear infinite;
+  filter: blur(4px);
+}
+.bh-spiral.s2 {
+  inset: 15px; animation-duration: 9s; animation-direction: reverse;
+  background: conic-gradient(from 90deg,
+    transparent 0deg, rgba(99,179,237,0.25) 30deg, transparent 70deg,
+    transparent 140deg, rgba(251,176,64,0.2) 170deg, transparent 220deg,
+    transparent 280deg, rgba(246,135,179,0.2) 310deg, transparent 360deg);
+  opacity: 0.35;
+}
 .photon-ring {
   position: absolute; inset: 40px; border-radius: 50%;
   border: 2px solid rgba(251,176,64,0.5);
-  box-shadow: 0 0 20px rgba(251,176,64,0.3), inset 0 0 20px rgba(251,176,64,0.1);
+  box-shadow: 0 0 25px rgba(251,176,64,0.3), 0 0 50px rgba(251,176,64,0.1), inset 0 0 20px rgba(251,176,64,0.1);
   animation: photonSpin 4s linear infinite;
 }
 @keyframes photonSpin { to { transform: rotate(-360deg); } }
 .bh-inner-ring {
   position: absolute; inset: 55px; border-radius: 50%;
-  border: 1px solid rgba(99,179,237,0.3);
+  border: 1px solid rgba(99,179,237,0.25);
+  box-shadow: 0 0 10px rgba(99,179,237,0.1);
   animation: ringPulse 2.5s ease-in-out infinite;
 }
-.orbit-p {
-  position: absolute; width: 3px; height: 3px; border-radius: 50%;
-  background: var(--star-gold);
-  animation: orbit 7s linear infinite;
-  transform-origin: 150px 150px;
+.bh-particle {
+  position: absolute;
+  width: var(--bp-size, 2px); height: var(--bp-size, 2px);
+  border-radius: 50%;
+  background: var(--bp-color, white);
+  box-shadow: 0 0 6px var(--bp-color, white);
+  left: 50%; top: 50%;
+  margin-left: calc(var(--bp-size, 2px) / -2);
+  margin-top: calc(0px - var(--bp-dist, 80px));
+  transform-origin: calc(var(--bp-size, 2px) / 2) var(--bp-dist, 80px);
+  animation: bhOrbit linear infinite;
 }
-.orbit-p.p1 { left: 147px; top: 20px; }
-.orbit-p.p2 { left: 147px; top: 50px; width: 2px; height: 2px; background: #93c5fd; animation-duration: 5s; animation-direction: reverse; }
-.orbit-p.p3 { left: 148px; top: 8px; width: 2.5px; height: 2.5px; background: var(--star-purple); animation-duration: 9s; }
-@keyframes orbit { to { transform: rotate(360deg); } }
+@keyframes bhOrbit { to { transform: rotate(360deg); } }
 .bh-void {
   position: absolute; inset: 70px; border-radius: 50%;
-  background: radial-gradient(circle, #000 60%, var(--bg-void) 100%);
-  box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 30px rgba(99,179,237,0.05);
+  background: radial-gradient(circle, #000 55%, #030712 80%, rgba(99,179,237,0.02) 100%);
+  box-shadow: 0 0 50px rgba(0,0,0,0.9), 0 0 100px rgba(0,0,0,0.5), inset 0 0 30px rgba(99,179,237,0.04);
   display: flex; align-items: center; justify-content: center;
   transition: all 0.3s;
 }
+.blackhole-container:hover .bh-void {
+  box-shadow: 0 0 60px rgba(0,0,0,0.95), 0 0 120px rgba(0,0,0,0.6), inset 0 0 40px rgba(99,179,237,0.06);
+}
 .bh-text { font-size: 13px; color: rgba(99,179,237,0.5); text-align: center; line-height: 1.6; letter-spacing: 0.5px; }
+.blackhole-container:hover .bh-text { color: rgba(99,179,237,0.8); }
 
 .open-info { text-align: center; max-width: 480px; }
 .open-title { font-size: 26px; font-weight: 600; margin-bottom: 10px; line-height: 1.3; }
@@ -1582,13 +1804,27 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
   padding: 4px 10px; border-radius: 6px; font-size: 11px; color: var(--text-secondary);
 }
 .open-chip.ok { color: var(--star-green); }
-.countdown-box { display: flex; gap: 12px; justify-content: center; margin-bottom: 28px; }
+.countdown-box { display: flex; gap: 10px; justify-content: center; margin-bottom: 28px; }
 .cd-unit {
-  text-align: center; background: var(--ss-card); border: 1px solid rgba(104,211,145,0.3);
-  border-radius: var(--ss-r-sm); padding: 12px 16px; min-width: 64px;
+  text-align: center; min-width: 68px;
+  background: linear-gradient(145deg, var(--ss-card), rgba(104,211,145,0.04));
+  border: 1px solid rgba(104,211,145,0.2);
+  border-radius: 14px; padding: 14px 12px;
+  position: relative; overflow: hidden;
 }
-.cd-num { font-family: var(--font-mono); font-size: 28px; font-weight: 500; color: var(--star-green); line-height: 1; }
-.cd-label { font-size: 10px; color: var(--text-muted); margin-top: 4px; letter-spacing: 1px; }
+.cd-unit::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(104,211,145,0.4), transparent);
+}
+.cd-num {
+  font-family: var(--font-mono); font-size: 30px; font-weight: 600;
+  color: var(--star-green); line-height: 1;
+  text-shadow: 0 0 20px rgba(104,211,145,0.3);
+}
+.cd-label {
+  font-size: 9px; color: var(--text-muted); margin-top: 6px;
+  letter-spacing: 2px; text-transform: uppercase;
+}
 
 .open-actions { display: flex; gap: 12px; justify-content: center; align-items: center; }
 .btn-share {
@@ -1607,14 +1843,22 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 .received-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
 .received-card {
   background: var(--ss-card); border: 1px solid var(--ss-border);
-  border-radius: var(--ss-r); padding: 20px; cursor: pointer;
-  transition: all 0.25s; position: relative; overflow: hidden;
+  border-radius: 16px; padding: 20px; cursor: pointer;
+  transition: all 0.3s; position: relative; overflow: hidden;
 }
 .received-card::before {
   content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
-  background: linear-gradient(90deg, var(--from-color), var(--to-color)); opacity: 0.6;
+  background: linear-gradient(90deg, var(--from-color), var(--to-color)); opacity: 0.7;
 }
-.received-card:hover { border-color: var(--ss-border-bright); transform: translateY(-3px); box-shadow: 0 0 40px rgba(99,179,237,0.15); }
+.received-card::after {
+  content: ''; position: absolute; top: 2px; left: 0; right: 0; height: 40px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--from-color) 4%, transparent), transparent);
+  pointer-events: none;
+}
+.received-card:hover {
+  border-color: var(--ss-border-bright); transform: translateY(-3px);
+  box-shadow: 0 8px 40px color-mix(in srgb, var(--from-color) 10%, transparent);
+}
 .rc-from { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
 .rc-avatar {
   width: 36px; height: 36px; border-radius: 50%;
