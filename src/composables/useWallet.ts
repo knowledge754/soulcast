@@ -208,7 +208,6 @@ export function useWallet() {
   })
   const connecting = ref(false)
   const error = ref('')
-  const errorInstallUrl = ref('')
   let currentProvider: EthereumProvider | null = null
 
   /* ── 钱包列表（包含检测） ── */
@@ -412,15 +411,13 @@ export function useWallet() {
   async function connectWallet(walletId: string) {
     connecting.value = true
     error.value = ''
-    errorInstallUrl.value = ''
 
     try {
-      const provider = getSpecificProvider(walletId)
+      // 优先找特定 provider，找不到则回退到 window.ethereum
+      const provider = getSpecificProvider(walletId) || window.ethereum
 
       if (!provider) {
-        const wallet = walletList.value.find(w => w.id === walletId)
-        error.value = `未检测到 ${wallet?.name || walletId}，请确认已安装该钱包扩展`
-        errorInstallUrl.value = wallet?.downloadUrl || ''
+        error.value = '未检测到任何钱包，请安装浏览器钱包扩展后刷新页面'
         connecting.value = false
         return
       }
@@ -441,7 +438,9 @@ export function useWallet() {
       const chainIdHex = await provider.request({ method: 'eth_chainId' }) as string
       const chainId = hexToNumber(chainIdHex)
       const balance = await getBalance(provider, address)
-      const walletInfo = walletList.value.find(w => w.id === walletId)
+
+      // 检测实际连接的钱包名称（可能与用户选择的不同）
+      const actualName = detectProviderName(provider) || walletId
 
       state.value = {
         connected: true,
@@ -450,7 +449,7 @@ export function useWallet() {
         chainId,
         chainName: CHAIN_MAP[chainId] || `Chain ${chainId}`,
         balance: `${balance} ETH`,
-        providerName: walletInfo?.name || walletId
+        providerName: actualName
       }
 
       localStorage.setItem('chainlog_wallet', JSON.stringify({
@@ -471,6 +470,20 @@ export function useWallet() {
     } finally {
       connecting.value = false
     }
+  }
+
+  /** 根据 provider 标志位反向检测实际钱包名称 */
+  function detectProviderName(p: EthereumProvider): string {
+    if (p.isOKExWallet || p.isOkxWallet) return 'OKX Wallet'
+    if (p.isTokenPocket) return 'TokenPocket'
+    if (p.isBinance) return 'Binance Web3'
+    if (p.isTrust) return 'Trust Wallet'
+    if (p.isCoinbaseWallet) return 'Coinbase Wallet'
+    if (p.isImToken) return 'imToken'
+    if (p.isOneKey) return 'OneKey'
+    if (p.isHuobiWallet) return '火币钱包'
+    if (p.isMetaMask) return 'MetaMask'
+    return 'Web3 Wallet'
   }
 
   /* ── 断开钱包 ── */
@@ -565,14 +578,12 @@ export function useWallet() {
   /* ── 弹窗控制 ── */
   function openModal() {
     error.value = ''
-    errorInstallUrl.value = ''
     showModal.value = true
   }
 
   function closeModal() {
     showModal.value = false
     error.value = ''
-    errorInstallUrl.value = ''
   }
 
   watch(state, (s) => {
@@ -595,7 +606,6 @@ export function useWallet() {
     showModal,
     connecting,
     error,
-    errorInstallUrl,
     walletList,
     connectWallet,
     disconnectWallet,

@@ -1,14 +1,12 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import Icon from '../icons/Icon.vue'
 import type { WalletProvider } from '../../composables/useWallet'
 
-const props = defineProps<{
+defineProps<{
   visible: boolean
   wallets: WalletProvider[]
   connecting: boolean
   error: string
-  installUrl?: string
   connectedAddress?: string
   connectedProvider?: string
 }>()
@@ -19,16 +17,12 @@ const emit = defineEmits<{
   disconnect: []
 }>()
 
-const detectedWallets = computed(() => props.wallets.filter(w => w.detected))
-const otherWallets = computed(() => props.wallets.filter(w => !w.detected))
-
 function handleOverlayClick(e: MouseEvent) {
   if ((e.target as HTMLElement).classList.contains('modal-overlay')) {
     emit('close')
   }
 }
 
-/** 每个钱包品牌的 SVG logo（手绘 Lucide 风格 24x24 viewBox） */
 const walletLogos: Record<string, string> = {
   metamask:
     `<path d="M20.5 4.5l-8 4.8-1.5-3.3z" fill="none" stroke-width="1.5"/>` +
@@ -124,28 +118,17 @@ const walletLogos: Record<string, string> = {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
               <circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>
             </svg>
-            <span class="error-text">{{ error }}</span>
-            <a v-if="installUrl" :href="installUrl" target="_blank" rel="noopener" class="install-link" @click.stop>
-              前往安装
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                <polyline points="15 3 21 3 21 9"/>
-                <line x1="10" x2="21" y1="14" y2="3"/>
-              </svg>
-            </a>
+            {{ error }}
           </div>
 
-          <!-- Detected Wallets -->
-          <div v-if="detectedWallets.length > 0" class="wallet-section">
-            <div class="wallet-section-label">
-              <span class="detected-dot"></span>
-              已检测到
-            </div>
+          <!-- Wallet List — 统一列表，全部可连接 -->
+          <div class="wallet-section">
+            <div class="wallet-section-label">选择钱包</div>
             <div class="wallet-grid">
               <button
-                v-for="w in detectedWallets"
+                v-for="w in wallets"
                 :key="w.id"
-                class="wallet-card detected"
+                class="wallet-card"
                 :class="{ loading: connecting }"
                 :disabled="connecting"
                 @click="emit('connect', w.id)"
@@ -163,39 +146,6 @@ const walletLogos: Record<string, string> = {
                   <Icon name="arrowRight" :size="14" />
                 </div>
                 <div v-if="connecting" class="wallet-spinner"></div>
-              </button>
-            </div>
-          </div>
-
-          <!-- Other Wallets -->
-          <div class="wallet-section">
-            <div class="wallet-section-label">
-              {{ detectedWallets.length > 0 ? '更多钱包' : '选择钱包' }}
-            </div>
-            <div class="wallet-grid">
-              <button
-                v-for="w in (detectedWallets.length > 0 ? otherWallets : wallets)"
-                :key="w.id"
-                class="wallet-card"
-                :class="{ 'not-installed': !w.detected }"
-                @click="emit('connect', w.id)"
-              >
-                <div class="wallet-logo" :style="{ background: w.color }">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
-                    stroke="white" stroke-width="1.75" stroke-linecap="round"
-                    stroke-linejoin="round" v-html="walletLogos[w.icon] || ''" />
-                </div>
-                <div class="wallet-info">
-                  <div class="wallet-name">
-                    {{ w.name }}
-                    <span v-if="!w.detected" class="install-hint">安装</span>
-                  </div>
-                  <div class="wallet-desc">{{ w.description }}</div>
-                </div>
-                <div class="wallet-arrow">
-                  <Icon v-if="w.detected" name="arrowRight" :size="14" />
-                  <Icon v-else name="externalLink" :size="14" />
-                </div>
               </button>
             </div>
           </div>
@@ -354,34 +304,6 @@ const walletLogos: Record<string, string> = {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
-}
-.modal-error > svg {
-  flex-shrink: 0;
-}
-.error-text {
-  flex: 1;
-  min-width: 0;
-}
-.install-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 10px;
-  border-radius: 6px;
-  background: rgba(99, 179, 237, 0.12);
-  border: 1px solid rgba(99, 179, 237, 0.25);
-  color: var(--accent-blue);
-  font-size: 11px;
-  font-family: var(--font-body);
-  text-decoration: none;
-  white-space: nowrap;
-  transition: all 0.2s;
-  margin-left: auto;
-}
-.install-link:hover {
-  background: rgba(99, 179, 237, 0.2);
-  border-color: rgba(99, 179, 237, 0.4);
 }
 
 /* ── Wallet Section ── */
@@ -398,13 +320,6 @@ const walletLogos: Record<string, string> = {
   display: flex;
   align-items: center;
   gap: 6px;
-}
-.detected-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--accent-green);
-  box-shadow: 0 0 6px var(--accent-green);
 }
 
 /* ── Wallet Grid ── */
@@ -431,22 +346,10 @@ const walletLogos: Record<string, string> = {
   text-align: left;
 }
 .wallet-card:hover {
-  border-color: var(--border-hover);
+  border-color: rgba(99, 179, 237, 0.4);
   background: rgba(99, 179, 237, 0.04);
   transform: translateX(4px);
-}
-.wallet-card.detected {
-  border-color: rgba(99, 179, 237, 0.2);
-}
-.wallet-card.detected:hover {
-  border-color: rgba(99, 179, 237, 0.4);
   box-shadow: var(--glow-blue);
-}
-.wallet-card.not-installed {
-  opacity: 0.65;
-}
-.wallet-card.not-installed:hover {
-  opacity: 0.85;
 }
 .wallet-card.loading {
   pointer-events: none;
@@ -471,18 +374,6 @@ const walletLogos: Record<string, string> = {
   font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.install-hint {
-  font-size: 10px;
-  color: var(--accent-blue);
-  background: rgba(99, 179, 237, 0.1);
-  padding: 1px 6px;
-  border-radius: 4px;
-  font-weight: 500;
-  font-family: var(--font-mono);
 }
 .wallet-desc {
   font-size: 11px;
