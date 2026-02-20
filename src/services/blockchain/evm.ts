@@ -7,12 +7,17 @@ import { CAPSULE_ABI, ERC20_ABI, ERC721_ABI, ERC1155_ABI } from './abi'
 import type { ChainConfig } from './chains'
 import { getRpcUrl, getContractAddress } from './chains'
 import type { CreateCapsuleParams, OnChainCapsule, TxStepCallback } from './types'
+import { getConnectedProvider } from './provider-bridge'
 
 function getProvider(chain: ChainConfig): ethers.JsonRpcProvider {
   return new ethers.JsonRpcProvider(getRpcUrl(chain))
 }
 
 function getBrowserProvider(): ethers.BrowserProvider | null {
+  const verified = getConnectedProvider()
+  if (verified) {
+    return new ethers.BrowserProvider(verified as ethers.Eip1193Provider)
+  }
   if (typeof window === 'undefined' || !window.ethereum) return null
   return new ethers.BrowserProvider(window.ethereum as ethers.Eip1193Provider)
 }
@@ -28,18 +33,21 @@ function getCapsuleContract(chain: ChainConfig, signerOrProvider: ethers.Signer 
 }
 
 export async function switchToChain(chain: ChainConfig): Promise<void> {
-  if (!window.ethereum || !chain.chainId) return
+  if (!chain.chainId) return
+  const provider = getConnectedProvider() || window.ethereum
+  if (!provider) return
+
   const chainIdHex = '0x' + chain.chainId.toString(16)
 
   try {
-    await window.ethereum.request({
+    await provider.request({
       method: 'wallet_switchEthereumChain',
       params: [{ chainId: chainIdHex }],
     })
   } catch (err: unknown) {
     const e = err as { code?: number }
     if (e.code === 4902) {
-      await window.ethereum.request({
+      await provider.request({
         method: 'wallet_addEthereumChain',
         params: [{
           chainId: chainIdHex,

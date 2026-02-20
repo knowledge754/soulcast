@@ -14,6 +14,7 @@
  */
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useAppStore } from '../stores/app'
+import { setConnectedProvider } from '../services/blockchain/provider-bridge'
 
 /* ══════════ 类型定义 ══════════ */
 export interface WalletProvider {
@@ -708,6 +709,7 @@ export function useWallet() {
       })
 
       currentProvider = provider
+      setConnectedProvider(provider as unknown as Parameters<typeof setConnectedProvider>[0])
 
       requestStart = Date.now()
       const accounts = await provider.request({
@@ -783,6 +785,7 @@ export function useWallet() {
       removeListeners(currentProvider)
     }
     currentProvider = null
+    setConnectedProvider(null)
     state.value = {
       connected: false,
       address: '',
@@ -845,6 +848,7 @@ export function useWallet() {
       const accounts = await provider.request({ method: 'eth_accounts' }) as string[]
       if (accounts && accounts.length > 0) {
         currentProvider = provider
+        setConnectedProvider(provider as unknown as Parameters<typeof setConnectedProvider>[0])
         const chainIdHex = await provider.request({ method: 'eth_chainId' }) as string
         const chainId = hexToNumber(chainIdHex)
         const balance = await getBalance(provider, accounts[0])
@@ -896,6 +900,10 @@ export function useWallet() {
     }
   })
 
+  function getConnectedProvider() {
+    return currentProvider
+  }
+
   return {
     state,
     showModal,
@@ -906,6 +914,7 @@ export function useWallet() {
     connectWallet,
     disconnectWallet,
     openModal,
-    closeModal
+    closeModal,
+    getConnectedProvider,
   }
 }
