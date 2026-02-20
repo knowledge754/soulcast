@@ -71,11 +71,27 @@ function confirmDate() {
   const d = new Date(pickYear.value, pickMonth.value, pickDay.value, pickHour.value, pickMinute.value)
   unlockDate.value = d.toISOString().slice(0, 16)
   showDatePicker.value = false
+  activePreset.value = 0
 }
 const formattedDate = computed(() => {
   if (!unlockDate.value) return '选择开启时间…'
   const d = new Date(unlockDate.value)
   return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+})
+
+const countdownText = computed(() => {
+  if (!unlockDate.value) return '未设定'
+  const now = new Date()
+  const target = new Date(unlockDate.value)
+  const diffMs = target.getTime() - now.getTime()
+  if (diffMs <= 0) return '已到期'
+  const days = Math.floor(diffMs / 86400000)
+  const years = Math.floor(days / 365)
+  const remainDays = days % 365
+  if (years > 0) return `${years}年 ${remainDays}天后开启`
+  if (days > 0) return `${days}天后开启`
+  const hours = Math.floor(diffMs / 3600000)
+  return `${hours}小时后开启`
 })
 
 /* ═══ Create: Step ═══ */
@@ -133,6 +149,21 @@ const lockModes = [
 const unlockDate = ref('')
 const activePreset = ref(3)
 const allowEarlyUnlock = ref(false)
+
+const timePresets = [
+  { years: 1, label: '1年' },
+  { years: 3, label: '3年' },
+  { years: 5, label: '5年' },
+  { years: 10, label: '10年' },
+  { years: 18, label: '18年', note: '成年' },
+  { years: 30, label: '30年' },
+  { years: 50, label: '50年', note: '半世纪' },
+  { years: 100, label: '100年', note: '永恒' },
+]
+const timeSliderIdx = computed(() => {
+  const idx = timePresets.findIndex(p => p.years === activePreset.value)
+  return idx >= 0 ? idx : 0
+})
 
 function setPreset(years: number) {
   activePreset.value = years
@@ -249,7 +280,7 @@ function publishCapsule() {
     chainColor: chains.find(c => c.key === selectedChain.value)?.color || '#F0B90B',
     sealDate: new Date().toISOString().slice(0, 10).replace(/-/g, '.'),
     status: 'sealed',
-    countdown: `剩余 ${activePreset.value}年`,
+    countdown: countdownText.value,
     orbClass: capsuleType.value === 'self' ? 'purple' : capsuleType.value === 'world' ? 'gold' : 'pink',
     lockedTokens: lockedTokens.value.length > 0 ? [...lockedTokens.value] : undefined,
     lockedNfts: lockedNfts.value.length > 0 ? [...lockedNfts.value] : undefined,
@@ -668,10 +699,22 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
                       </div>
                     </div>
                   </Transition>
-                  <div class="presets">
-                    <button v-for="y in [1, 3, 5, 10, 18]" :key="y" class="preset-btn" :class="{ active: activePreset === y }" @click="setPreset(y)">
-                      {{ y === 18 ? '18年后（成年）' : y + '年后' }}
-                    </button>
+                  <div class="time-slider">
+                    <div class="ts-track">
+                      <div class="ts-fill" :style="{ width: ((timeSliderIdx / (timePresets.length - 1)) * 100) + '%' }"></div>
+                      <div
+                        v-for="(p, i) in timePresets"
+                        :key="p.years"
+                        class="ts-node"
+                        :class="{ active: activePreset === p.years, passed: i <= timeSliderIdx }"
+                        :style="{ left: ((i / (timePresets.length - 1)) * 100) + '%' }"
+                        @click="setPreset(p.years)"
+                      >
+                        <div class="ts-dot"></div>
+                        <div class="ts-label">{{ p.label }}</div>
+                        <div v-if="p.note" class="ts-note">{{ p.note }}</div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -733,7 +776,7 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
                   <div class="preview-body">{{ capsuleBody || '（空白内容）' }}</div>
                   <div class="preview-lock-info">
                     <span><Icon name="clock" :size="12" /> {{ metaLock }}</span>
-                    <span class="lock-cd"><Icon name="lock" :size="11" /> {{ activePreset }}年后开启</span>
+                    <span class="lock-cd"><Icon name="lock" :size="11" /> {{ countdownText }}</span>
                     <span><Icon name="hexagon" :size="12" /> {{ metaChain }}</span>
                     <span class="ipfs-ok">IPFS ✓</span>
                   </div>
@@ -758,7 +801,7 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
                   <div class="section-eye">封印检查清单</div>
                   <div class="check-item"><span class="ci-ok">✓</span> 内容已加密，仅你的钱包可解密</div>
                   <div class="check-item"><span class="ci-ok">✓</span> 附件已上传 IPFS，CID: Qm7x3…f2a</div>
-                  <div class="check-item"><span class="ci-ok">✓</span> {{ metaLock }}设定为 {{ activePreset }} 年后</div>
+                  <div class="check-item"><span class="ci-ok">✓</span> {{ metaLock }}设定为 {{ countdownText }}</div>
                   <div class="check-item"><span class="ci-ok">✓</span> 部署链：{{ metaChain }}</div>
                   <div v-if="lockedTokens.length > 0" class="check-item"><span class="ci-ok">✓</span> {{ lockedTokens.length }} 种 Token 已授权转入合约</div>
                   <div v-if="lockedNfts.length > 0" class="check-item"><span class="ci-ok">✓</span> {{ lockedNfts.length }} 个 NFT 已授权转移</div>
@@ -1244,7 +1287,6 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 .received-card,
 .asset-add,
 .media-add,
-.preset-btn,
 .filter-pill {
   backdrop-filter: var(--blur-card);
 }
@@ -1565,21 +1607,66 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 .lm-name { font-size: 13px; font-weight: 600; }
 .lm-desc { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
 
-/* Presets */
-.presets { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
-.preset-btn {
-  padding: 7px 16px; background: rgba(99,179,237,0.04);
-  border: 1px solid var(--ss-border); border-radius: 99px;
-  font-size: 11px; color: var(--text-secondary);
-  cursor: pointer; transition: all 0.25s; font-family: var(--font-mono);
+/* Time Slider */
+.time-slider {
+  margin-top: 16px; padding: 24px 20px 42px;
+  background: rgba(99,179,237,0.02); border: 1px solid rgba(99,179,237,0.06);
+  border-radius: 14px; position: relative;
 }
-.preset-btn:hover {
-  background: rgba(99,179,237,0.08); border-color: rgba(99,179,237,0.3); color: var(--star-blue);
+.ts-track {
+  position: relative; height: 3px; background: rgba(255,255,255,0.06);
+  border-radius: 2px;
 }
-.preset-btn.active {
-  background: rgba(99,179,237,0.12); border-color: var(--star-blue); color: var(--star-blue);
-  box-shadow: 0 0 14px rgba(99,179,237,0.15);
+.ts-fill {
+  position: absolute; top: 0; left: 0; height: 100%; border-radius: 2px;
+  background: linear-gradient(90deg, var(--star-blue), var(--star-cyan), var(--star-purple));
+  transition: width 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  box-shadow: 0 0 12px rgba(99,179,237,0.3);
 }
+.ts-node {
+  position: absolute; top: 50%; transform: translate(-50%, -50%);
+  cursor: pointer; z-index: 2; display: flex; flex-direction: column; align-items: center;
+}
+.ts-dot {
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--bg-card); border: 2px solid rgba(255,255,255,0.12);
+  transition: all 0.3s; position: relative;
+}
+.ts-dot::after {
+  content: ''; position: absolute; inset: 2px; border-radius: 50%;
+  background: rgba(255,255,255,0.06); transition: all 0.3s;
+}
+.ts-node:hover .ts-dot {
+  border-color: rgba(99,179,237,0.5); transform: scale(1.2);
+}
+.ts-node.passed .ts-dot {
+  border-color: rgba(99,179,237,0.4);
+}
+.ts-node.passed .ts-dot::after {
+  background: rgba(99,179,237,0.2);
+}
+.ts-node.active .ts-dot {
+  width: 16px; height: 16px; border-color: var(--star-blue);
+  box-shadow: 0 0 16px rgba(99,179,237,0.4), 0 0 32px rgba(99,179,237,0.15);
+}
+.ts-node.active .ts-dot::after {
+  background: var(--star-blue);
+}
+.ts-label {
+  margin-top: 10px; font-size: 11px; font-family: var(--font-mono);
+  color: var(--text-muted); white-space: nowrap; transition: all 0.3s;
+  font-weight: 500;
+}
+.ts-node:hover .ts-label { color: var(--text-secondary); }
+.ts-node.active .ts-label {
+  color: var(--star-blue); font-weight: 700; font-size: 13px;
+  text-shadow: 0 0 10px rgba(99,179,237,0.3);
+}
+.ts-note {
+  font-size: 9px; color: var(--star-gold); margin-top: 1px;
+  opacity: 0.7; letter-spacing: 0.5px;
+}
+.ts-node.active .ts-note { opacity: 1; }
 
 /* Unlock */
 .unlock-option {
