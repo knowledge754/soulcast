@@ -107,4 +107,19 @@ export const walletIcons: Record<string, string> = {
     `<circle cx="40" cy="48" r="5" fill="white"/>`,
     '#00854D'
   ),
+
+  /* Phantom — 紫色幽灵 */
+  phantom: svg(
+    `<path d="M26,48 Q26,28 40,22 Q54,28 54,48 L54,52 Q54,58 48,58 L32,58 Q26,58 26,52 Z" fill="white" fill-opacity=".9"/>` +
+    `<circle cx="33" cy="40" r="3.5" fill="#AB9FF2"/>` +
+    `<circle cx="47" cy="40" r="3.5" fill="#AB9FF2"/>`,
+    '#AB9FF2'
+  ),
+
+  /* Sui Wallet — 蓝色水滴形 */
+  suiwallet: svg(
+    `<path d="M40,18 Q58,38 50,52 Q46,58 40,58 Q34,58 30,52 Q22,38 40,18 Z" fill="white" fill-opacity=".9"/>` +
+    `<path d="M35,42 Q40,32 45,42 Q40,48 35,42 Z" fill="#4DA2FF"/>`,
+    '#4DA2FF'
+  ),
 }

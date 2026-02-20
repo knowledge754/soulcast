@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useI18n } from '../stores/i18n'
 import { useWallet } from '../composables/useWallet'
 import Icon from '../components/icons/Icon.vue'
@@ -7,6 +7,15 @@ import TokenSelector from '../components/starsealed/TokenSelector.vue'
 import NftSelector from '../components/starsealed/NftSelector.vue'
 import type { LockedToken } from '../components/starsealed/TokenSelector.vue'
 import type { LockedNft } from '../components/starsealed/NftSelector.vue'
+import {
+  fullCreateCapsule,
+  openCapsuleOnChain,
+  CHAINS,
+  CHAIN_LIST,
+  getExplorerTxUrl,
+  type TxStep,
+  type SealResult,
+} from '../services/blockchain'
 
 const i18n = useI18n()
 const wallet = useWallet()
@@ -166,12 +175,9 @@ const durationText = computed(() => {
 
 /* ═══ Create: Chain ═══ */
 const selectedChain = ref('bsc')
-const chains = [
-  { key: 'bsc', name: 'BSC', fee: '~$0.05', color: '#F0B90B', symbol: 'BNB' },
-  { key: 'ethereum', name: 'Ethereum', fee: '~$2.5', color: '#627EEA', symbol: 'ETH' },
-  { key: 'base', name: 'Base', fee: '~$0.005', color: '#0052ff', symbol: 'BASE' },
-  { key: 'avalanche', name: 'Avalanche', fee: '~$0.01', color: '#e84142', symbol: 'AVAX' },
-]
+const chains = CHAIN_LIST.map(c => ({
+  key: c.key, name: c.name, fee: c.fee, color: c.color, symbol: c.symbol, type: c.type,
+}))
 
 /* ═══ Create: Locked Assets ═══ */
 const showTokenSelector = ref(false)
@@ -204,10 +210,11 @@ const gasEstimate = computed(() => {
   const baseFee = parseFloat(ch?.fee.replace(/[~$]/g, '') || '0.05')
   const tokenFee = lockedTokens.value.length * 0.03
   const nftFee = lockedNfts.value.length * 0.05
-  const total = baseFee + tokenFee + nftFee
+  const ipfsFee = 0.01
+  const total = baseFee + tokenFee + nftFee + ipfsFee
   return {
     contract: baseFee.toFixed(3),
-    ipfs: '0.001',
+    ipfs: ipfsFee.toFixed(3),
     tokenApprove: tokenFee > 0 ? tokenFee.toFixed(3) : '0.000',
     nftApprove: nftFee > 0 ? nftFee.toFixed(3) : '0.000',
     total: total.toFixed(3),
@@ -223,11 +230,15 @@ const metaLock = computed(() => {
   const m: Record<string, string> = { time: '时间锁', event: '事件锁', multisig: '多签锁', random: '随机锁' }
   return m[lockMode.value]
 })
-const metaChain = computed(() => chains.find(c => c.key === selectedChain.value)?.name || 'Solana')
+const metaChain = computed(() => chains.find(c => c.key === selectedChain.value)?.name || 'BSC')
 
 /* ═══ Seal action ═══ */
 const showSealOverlay = ref(false)
 const sealPhase = ref(0)
+const txSteps = ref<TxStep[]>([])
+const sealResult = ref<SealResult | null>(null)
+const sealError = ref('')
+const isSealing = ref(false)
 
 const ttsTexts: Record<number, string> = {
   1: '正在连接黑洞，引力场已锁定，开始吸入胶囊。',
@@ -250,43 +261,100 @@ function speakPhase(phase: number, texts: Record<number, string> = ttsTexts) {
   window.speechSynthesis.speak(u)
 }
 
-function sealCapsule() {
+function sealCapsuleAnimation() {
   showSealOverlay.value = true
   sealPhase.value = 1
   speakPhase(1)
   setTimeout(() => { sealPhase.value = 2; speakPhase(2) }, 1200)
   setTimeout(() => { sealPhase.value = 3; speakPhase(3) }, 3000)
   setTimeout(() => { sealPhase.value = 4; speakPhase(4) }, 4500)
-  setTimeout(() => { showSealOverlay.value = false; sealPhase.value = 0; activeTab.value = 'mine'; window.speechSynthesis?.cancel() }, 6000)
+  setTimeout(() => { showSealOverlay.value = false; sealPhase.value = 0; window.speechSynthesis?.cancel() }, 6000)
 }
 
-function publishCapsule() {
+async function publishCapsule() {
   if (!capsuleTitle.value.trim() && !capsuleBody.value.trim()) return
-  const newCap: Capsule = {
-    id: Date.now(),
-    type: capsuleType.value,
-    title: capsuleTitle.value || '未命名胶囊',
-    chain: chains.find(c => c.key === selectedChain.value)?.symbol || 'BNB',
-    chainColor: chains.find(c => c.key === selectedChain.value)?.color || '#F0B90B',
-    sealDate: new Date().toISOString().slice(0, 10).replace(/-/g, '.'),
-    status: 'sealed',
-    countdown: countdownText.value,
-    orbClass: capsuleType.value === 'self' ? 'purple' : capsuleType.value === 'world' ? 'gold' : 'pink',
-    lockedTokens: lockedTokens.value.length > 0 ? [...lockedTokens.value] : undefined,
-    lockedNfts: lockedNfts.value.length > 0 ? [...lockedNfts.value] : undefined,
-    lockMode: lockMode.value,
-    recipient: capsuleType.value === 'other' ? recipientAddr.value : undefined,
-    unlockTime: unlockDate.value,
-    totalLockedUsd: totalLockedUsd.value > 0 ? totalLockedUsd.value : undefined,
+  if (!wallet.state.value.connected) {
+    wallet.openModal()
+    return
   }
-  myCapsules.value.unshift(newCap)
-  capsuleTitle.value = ''
-  capsuleBody.value = ''
-  recipientAddr.value = ''
-  attachments.value = []
-  lockedTokens.value = []
-  lockedNfts.value = []
-  createStep.value = 1
+
+  isSealing.value = true
+  sealError.value = ''
+  txSteps.value = []
+  sealResult.value = null
+
+  const ch = chains.find(c => c.key === selectedChain.value)
+
+  try {
+    const result = await fullCreateCapsule({
+      chain: selectedChain.value,
+      capsuleType: capsuleType.value,
+      recipient: capsuleType.value === 'other' ? recipientAddr.value : '',
+      title: capsuleTitle.value || '未命名胶囊',
+      body: capsuleBody.value,
+      bodyFormat: 'markdown',
+      attachments: attachments.value.map(a => ({
+        name: a.file.name, type: a.file.type, size: a.file.size, dataUrl: a.url,
+      })),
+      unlockTime: unlockDate.value,
+      allowEarlyUnlock: allowEarlyUnlock.value,
+      tokens: lockedTokens.value.map(t => ({
+        symbol: t.symbol, name: t.name || t.symbol, address: t.address,
+        amount: t.amount, decimals: t.decimals, usdPrice: t.usdPrice,
+      })),
+      nfts: lockedNfts.value.map(n => ({
+        contractAddress: n.contractAddress, tokenId: n.tokenId,
+        name: n.name, collection: n.collection, image: n.image, standard: n.standard,
+      })),
+      creator: wallet.state.value.address,
+    }, (step) => {
+      const idx = txSteps.value.findIndex(s => s.step === step.step && s.index === step.index)
+      if (idx >= 0) txSteps.value[idx] = step
+      else txSteps.value.push(step)
+    })
+
+    sealResult.value = result
+
+    const newCap: Capsule = {
+      id: result.capsuleId || Date.now(),
+      type: capsuleType.value,
+      title: capsuleTitle.value || '未命名胶囊',
+      chain: ch?.symbol || 'BNB',
+      chainColor: ch?.color || '#F0B90B',
+      sealDate: new Date().toISOString().slice(0, 10).replace(/-/g, '.'),
+      status: 'sealed',
+      countdown: countdownText.value,
+      orbClass: capsuleType.value === 'self' ? 'purple' : capsuleType.value === 'world' ? 'gold' : 'pink',
+      lockedTokens: lockedTokens.value.length > 0 ? [...lockedTokens.value] : undefined,
+      lockedNfts: lockedNfts.value.length > 0 ? [...lockedNfts.value] : undefined,
+      lockMode: lockMode.value,
+      recipient: capsuleType.value === 'other' ? recipientAddr.value : undefined,
+      unlockTime: unlockDate.value,
+      totalLockedUsd: totalLockedUsd.value > 0 ? totalLockedUsd.value : undefined,
+      txHash: result.txHash,
+      chainKey: selectedChain.value,
+      contentCID: result.contentCID,
+    }
+    myCapsules.value.unshift(newCap)
+
+    sealCapsuleAnimation()
+    await new Promise(r => setTimeout(r, 6200))
+
+    capsuleTitle.value = ''
+    capsuleBody.value = ''
+    recipientAddr.value = ''
+    attachments.value = []
+    lockedTokens.value = []
+    lockedNfts.value = []
+    createStep.value = 1
+    activeTab.value = 'mine'
+  } catch (err: unknown) {
+    const e = err as { message?: string }
+    sealError.value = e.message || '封印失败，请重试'
+    console.error('[StarSealed] Publish error:', err)
+  } finally {
+    isSealing.value = false
+  }
 }
 
 /* ═══ My Capsules ═══ */
@@ -308,6 +376,9 @@ interface Capsule {
   recipient?: string;
   unlockTime?: string;
   totalLockedUsd?: number;
+  txHash?: string;
+  chainKey?: string;
+  contentCID?: string;
 }
 
 const myCapsules = ref<Capsule[]>([
@@ -370,11 +441,23 @@ const openTtsTexts: Record<number, string> = {
   4: '封印已开启，欢迎回到过去的记忆。'
 }
 
-function openCapsuleFromCard(capsule: Capsule) {
+async function openCapsuleFromCard(capsule: Capsule) {
   if (capsule.status === 'ready') {
     showOpenOverlay.value = true
     openPhase.value = 1
     speakPhase(1, openTtsTexts)
+
+    // Real on-chain open if has txHash
+    if (capsule.chainKey && capsule.txHash) {
+      try {
+        await openCapsuleOnChain(capsule.chainKey, capsule.id, (step) => {
+          if (step.status === 'done') openPhase.value = 3
+        })
+      } catch (err) {
+        console.warn('[StarSealed] On-chain open failed, proceeding with local:', err)
+      }
+    }
+
     setTimeout(() => { openPhase.value = 2; speakPhase(2, openTtsTexts) }, 1500)
     setTimeout(() => { openPhase.value = 3; speakPhase(3, openTtsTexts) }, 3500)
     setTimeout(() => { openPhase.value = 4; speakPhase(4, openTtsTexts) }, 5000)
@@ -723,6 +806,7 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
                       <Icon name="hexagon" :size="22" :color="ch.color" />
                       <div class="chain-name">{{ ch.name }}</div>
                       <div class="chain-fee">{{ ch.fee }}</div>
+                      <div class="chain-type-badge" v-if="ch.type !== 'evm'">{{ ch.type.toUpperCase() }}</div>
                     </div>
                   </div>
                 </div>
@@ -777,14 +861,50 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
                   <div class="check-item"><span class="ci-ok">✓</span> 部署链：{{ metaChain }}</div>
                   <div v-if="lockedTokens.length > 0" class="check-item"><span class="ci-ok">✓</span> {{ lockedTokens.length }} 种 Token 已授权转入合约</div>
                   <div v-if="lockedNfts.length > 0" class="check-item"><span class="ci-ok">✓</span> {{ lockedNfts.length }} 个 NFT 已授权转移</div>
-                  <div v-if="allowEarlyUnlock" class="check-item"><span class="ci-warn">!</span> 提前解锁已开启，惩罚金 0.01 {{ chains.find(c => c.key === selectedChain)?.symbol }}</div>
+                  <div v-if="allowEarlyUnlock" class="check-item"><span class="ci-warn">!</span> 提前解锁已开启，惩罚金 10% 锁入资产</div>
                 </div>
 
+                <!-- Transaction Progress -->
+                <Transition name="ss-fade">
+                  <div v-if="txSteps.length > 0" class="tx-progress">
+                    <div class="section-eye">链上交易进度</div>
+                    <div v-for="(ts, idx) in txSteps" :key="idx" class="tx-step" :class="ts.status">
+                      <div class="tx-step-icon">
+                        <span v-if="ts.status === 'done'" class="tx-ok">✓</span>
+                        <span v-else-if="ts.status === 'error'" class="tx-err">✗</span>
+                        <span v-else class="tx-spin"></span>
+                      </div>
+                      <div class="tx-step-info">
+                        <div class="tx-step-msg">{{ ts.message }}</div>
+                        <a v-if="ts.txHash" :href="getExplorerTxUrl(selectedChain, ts.txHash)" target="_blank" class="tx-hash-link">
+                          {{ ts.txHash.slice(0, 10) }}...{{ ts.txHash.slice(-6) }}
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                </Transition>
+
+                <div v-if="sealError" class="seal-error">
+                  <Icon name="zap" :size="14" /> {{ sealError }}
+                </div>
+
+                <Transition name="ss-fade">
+                  <div v-if="sealResult" class="seal-success">
+                    <div class="ss-title">封印成功!</div>
+                    <div class="ss-info">胶囊 #{{ sealResult.capsuleId }} 已上链 {{ sealResult.chain.toUpperCase() }}</div>
+                    <a :href="sealResult.explorerUrl" target="_blank" class="ss-explorer">
+                      在区块浏览器查看 →
+                    </a>
+                    <div class="ss-cid">IPFS CID: {{ sealResult.contentCID.slice(0, 20) }}...</div>
+                  </div>
+                </Transition>
+
                 <div class="nav-btns step3-btns">
-                  <button class="btn-back" @click="goStep(2)">← 返回</button>
-                  <button class="seal-btn inline" @click="publishCapsule(); sealCapsule()">
-                    <Icon name="hexagon" :size="16" />
-                    投入黑洞，完成封印
+                  <button class="btn-back" @click="goStep(2)" :disabled="isSealing">← 返回</button>
+                  <button class="seal-btn inline" @click="publishCapsule()" :disabled="isSealing || !wallet.state.value.connected">
+                    <span v-if="isSealing" class="seal-spinner"></span>
+                    <Icon v-else name="hexagon" :size="16" />
+                    {{ isSealing ? '封印中...' : !wallet.state.value.connected ? '请先连接钱包' : '投入黑洞，完成封印' }}
                   </button>
                 </div>
               </div>
@@ -994,6 +1114,15 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
                 <span class="cc-date">封印于 {{ cap.sealDate }}</span>
                 <span class="cc-chain" :style="{ color: cap.chainColor }">{{ cap.chain }}</span>
               </div>
+              <a
+                v-if="cap.txHash && cap.chainKey"
+                :href="getExplorerTxUrl(cap.chainKey, cap.txHash)"
+                target="_blank"
+                class="cc-tx-link"
+                @click.stop
+              >
+                Tx: {{ cap.txHash.slice(0, 6) }}...{{ cap.txHash.slice(-4) }} ↗
+              </a>
             </div>
           </div>
         </div>
@@ -1655,6 +1784,7 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 /* Chains */
 .chains { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .chain-item {
+  position: relative;
   background: var(--ss-card); border: 1.5px solid var(--ss-border);
   border-radius: var(--ss-r-sm); padding: 12px 8px;
   text-align: center; cursor: pointer; transition: all 0.2s;
@@ -2146,6 +2276,73 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 .cc-meta { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
 .cc-date { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); }
 .cc-chain { font-family: var(--font-mono); font-size: 10px; font-weight: 600; }
+.cc-tx-link {
+  display: block; margin-top: 6px; font-size: 9px; font-family: var(--font-mono);
+  color: var(--star-blue); opacity: 0.6; text-decoration: none;
+  transition: opacity 0.2s;
+}
+.cc-tx-link:hover { opacity: 1; text-decoration: underline; }
+
+/* ═══ TX Progress ═══ */
+.tx-progress {
+  margin: 16px 0; padding: 14px; border-radius: 12px;
+  background: rgba(99,179,237,0.03); border: 1px solid rgba(99,179,237,0.08);
+}
+.tx-step {
+  display: flex; align-items: flex-start; gap: 10px; padding: 8px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+.tx-step:last-child { border-bottom: none; }
+.tx-step-icon { width: 20px; height: 20px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.tx-ok { color: #4ade80; font-weight: 700; font-size: 14px; }
+.tx-err { color: #f87171; font-weight: 700; font-size: 14px; }
+.tx-spin {
+  width: 14px; height: 14px; border: 2px solid rgba(99,179,237,0.2);
+  border-top-color: var(--star-blue); border-radius: 50%;
+  animation: tx-rotate 0.8s linear infinite;
+}
+@keyframes tx-rotate { to { transform: rotate(360deg); } }
+.tx-step-msg { font-size: 12px; color: var(--text-primary); }
+.tx-hash-link {
+  font-size: 10px; font-family: var(--font-mono); color: var(--star-blue);
+  text-decoration: none; opacity: 0.7;
+}
+.tx-hash-link:hover { opacity: 1; text-decoration: underline; }
+.tx-step.done .tx-step-msg { color: #4ade80; }
+.tx-step.error .tx-step-msg { color: #f87171; }
+
+.seal-error {
+  padding: 10px 14px; margin: 12px 0; border-radius: 10px;
+  background: rgba(248,113,113,0.08); border: 1px solid rgba(248,113,113,0.2);
+  color: #f87171; font-size: 12px; display: flex; align-items: center; gap: 6px;
+}
+.seal-success {
+  padding: 16px; margin: 12px 0; border-radius: 12px; text-align: center;
+  background: rgba(74,222,128,0.04); border: 1px solid rgba(74,222,128,0.15);
+}
+.ss-title { font-size: 16px; font-weight: 700; color: #4ade80; }
+.ss-info { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+.ss-explorer {
+  display: inline-block; margin-top: 8px; font-size: 11px; font-family: var(--font-mono);
+  color: var(--star-blue); text-decoration: none;
+}
+.ss-explorer:hover { text-decoration: underline; }
+.ss-cid { font-size: 9px; color: var(--text-muted); margin-top: 6px; font-family: var(--font-mono); }
+
+.seal-spinner {
+  display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.2);
+  border-top-color: #fff; border-radius: 50%; animation: tx-rotate 0.8s linear infinite;
+  vertical-align: middle; margin-right: 6px;
+}
+
+/* Chain type badge */
+.chain-type-badge {
+  position: absolute; top: 4px; right: 4px;
+  font-size: 7px; font-weight: 700; letter-spacing: 0.5px;
+  padding: 1px 5px; border-radius: 4px;
+  background: rgba(99,179,237,0.15); color: var(--star-blue);
+  text-transform: uppercase;
+}
 
 /* ═══ RECEIVED ═══ */
 .received-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }

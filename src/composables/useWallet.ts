@@ -83,6 +83,22 @@ interface EthereumProvider {
   providers?: EthereumProvider[]
 }
 
+interface SolanaWallet {
+  publicKey: { toBase58: () => string } | null
+  isConnected: boolean
+  connect: () => Promise<{ publicKey: { toBase58: () => string } }>
+  disconnect: () => Promise<void>
+  signTransaction: (tx: unknown) => Promise<unknown>
+  signAllTransactions: (txs: unknown[]) => Promise<unknown[]>
+}
+
+interface SuiWalletAdapter {
+  hasPermissions: () => Promise<boolean>
+  requestPermissions: () => Promise<boolean>
+  getAccounts: () => Promise<{ address: string }[]>
+  disconnect: () => Promise<void>
+}
+
 declare global {
   interface Window {
     ethereum?: EthereumProvider
@@ -94,6 +110,9 @@ declare global {
     imToken?: boolean
     onekey?: { ethereum?: EthereumProvider }
     $onekey?: { ethereum?: EthereumProvider }
+    phantom?: { solana?: SolanaWallet }
+    solflare?: SolanaWallet
+    suiWallet?: SuiWalletAdapter
   }
 }
 
@@ -384,6 +403,22 @@ export function useWallet() {
         downloadUrl: 'https://trezor.io/',
         detected: false,
         eip6963Icon: getEIP6963Icon('trezor'),
+      },
+      {
+        id: 'phantom', name: 'Phantom', icon: 'phantom',
+        color: 'linear-gradient(135deg, #AB9FF2, #7B61FF)',
+        description: 'Solana 生态首选钱包，支持多链',
+        downloadUrl: 'https://phantom.app/',
+        detected: !!window.phantom?.solana,
+        eip6963Icon: getEIP6963Icon('phantom'),
+      },
+      {
+        id: 'suiwallet', name: 'Sui Wallet', icon: 'suiwallet',
+        color: 'linear-gradient(135deg, #4DA2FF, #2D7DD2)',
+        description: 'Sui 链官方钱包',
+        downloadUrl: 'https://chrome.google.com/webstore/detail/sui-wallet',
+        detected: !!window.suiWallet,
+        eip6963Icon: getEIP6963Icon('suiwallet'),
       }
     ]
   })
@@ -571,6 +606,80 @@ export function useWallet() {
     connectingId.value = walletId
     error.value = ''
     let requestStart = Date.now()
+
+    // Handle Solana wallet (Phantom)
+    if (walletId === 'phantom') {
+      try {
+        const phantom = window.phantom?.solana
+        if (!phantom) {
+          error.value = '未检测到 Phantom 钱包，请安装 Phantom 浏览器扩展'
+          connecting.value = false
+          connectingId.value = ''
+          return
+        }
+        const resp = await phantom.connect()
+        const address = resp.publicKey.toBase58()
+        state.value = {
+          connected: true,
+          address,
+          shortAddress: address.slice(0, 4) + '...' + address.slice(-4),
+          chainId: 0,
+          chainName: 'Solana',
+          balance: '- SOL',
+          providerName: 'Phantom'
+        }
+        localStorage.setItem('chainlog_wallet', JSON.stringify({ walletId: 'phantom', address, chainId: 0 }))
+        showModal.value = false
+      } catch (err: unknown) {
+        const e = err as { message?: string }
+        error.value = e.message || 'Phantom 连接失败'
+      } finally {
+        connecting.value = false
+        connectingId.value = ''
+      }
+      return
+    }
+
+    // Handle Sui wallet
+    if (walletId === 'suiwallet') {
+      try {
+        const suiWallet = window.suiWallet
+        if (!suiWallet) {
+          error.value = '未检测到 Sui Wallet，请安装 Sui Wallet 浏览器扩展'
+          connecting.value = false
+          connectingId.value = ''
+          return
+        }
+        const hasPerms = await suiWallet.hasPermissions()
+        if (!hasPerms) await suiWallet.requestPermissions()
+        const accounts = await suiWallet.getAccounts()
+        if (accounts.length === 0) {
+          error.value = 'Sui Wallet 未授权'
+          connecting.value = false
+          connectingId.value = ''
+          return
+        }
+        const address = accounts[0].address
+        state.value = {
+          connected: true,
+          address,
+          shortAddress: address.slice(0, 6) + '...' + address.slice(-4),
+          chainId: 0,
+          chainName: 'Sui',
+          balance: '- SUI',
+          providerName: 'Sui Wallet'
+        }
+        localStorage.setItem('chainlog_wallet', JSON.stringify({ walletId: 'suiwallet', address, chainId: 0 }))
+        showModal.value = false
+      } catch (err: unknown) {
+        const e = err as { message?: string }
+        error.value = e.message || 'Sui Wallet 连接失败'
+      } finally {
+        connecting.value = false
+        connectingId.value = ''
+      }
+      return
+    }
 
     try {
       const provider = getSpecificProvider(walletId)
