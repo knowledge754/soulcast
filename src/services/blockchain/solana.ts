@@ -93,13 +93,13 @@ export async function createCapsuleSolana(
     )
   }
 
-  // Memo: store CID reference on-chain
-  const memoData = Buffer.from(JSON.stringify({
+  const memoStr = JSON.stringify({
     type: 'chainlog_capsule',
     cid: params.contentCID,
     unlockTime: params.unlockTime,
     capsuleType: params.capsuleType,
-  }))
+  })
+  const memoData = new TextEncoder().encode(memoStr)
   tx.add({
     keys: [],
     programId: new PublicKey('MemoSQ4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr'),

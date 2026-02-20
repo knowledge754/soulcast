@@ -1,17 +1,14 @@
 /**
  * Blockchain Service — 统一入口
  * 自动根据链类型 (EVM / Solana / Sui) 调用对应的服务
+ * Solana / Sui SDK 使用动态 import 避免顶层加载时 polyfill 问题
  */
 export * from './types'
 export * from './chains'
 
-import { CHAINS, type ChainConfig } from './chains'
+import { CHAINS } from './chains'
 import type { CreateCapsuleParams, TxStepCallback, OnChainCapsule, SealResult } from './types'
 import { ipfsService, type CapsuleContent } from '../ipfs'
-
-import * as evm from './evm'
-import * as solana from './solana'
-import * as sui from './sui'
 
 export interface FullCreateParams {
   chain: string
@@ -37,7 +34,6 @@ export async function fullCreateCapsule(
   const chain = CHAINS[params.chain]
   if (!chain) throw new Error(`Unknown chain: ${params.chain}`)
 
-  // Step 1: Upload content to IPFS
   onStep?.({ step: 'ipfs_upload', status: 'pending', message: '上传内容到 IPFS...' })
 
   const content: CapsuleContent = {
@@ -57,7 +53,6 @@ export async function fullCreateCapsule(
   const ipfsResult = await ipfsService.uploadContent(content)
   onStep?.({ step: 'ipfs_upload', status: 'done', message: `内容已上传 (CID: ${ipfsResult.cid.slice(0, 12)}...)` })
 
-  // Step 2: Create on-chain capsule based on chain type
   const contractParams: CreateCapsuleParams = {
     capsuleType: params.capsuleType,
     recipient: params.recipient,
@@ -71,15 +66,21 @@ export async function fullCreateCapsule(
   let result: { txHash: string; capsuleId: number }
 
   switch (chain.type) {
-    case 'evm':
+    case 'evm': {
+      const evm = await import('./evm')
       result = await evm.createCapsule(chain, contractParams, onStep)
       break
-    case 'solana':
-      result = await solana.createCapsuleSolana(chain, contractParams, onStep)
+    }
+    case 'solana': {
+      const sol = await import('./solana')
+      result = await sol.createCapsuleSolana(chain, contractParams, onStep)
       break
-    case 'sui':
-      result = await sui.createCapsuleSui(chain, contractParams, onStep)
+    }
+    case 'sui': {
+      const suiMod = await import('./sui')
+      result = await suiMod.createCapsuleSui(chain, contractParams, onStep)
       break
+    }
     default:
       throw new Error(`Unsupported chain type: ${chain.type}`)
   }
@@ -102,8 +103,10 @@ export async function openCapsuleOnChain(
   if (!chain) throw new Error(`Unknown chain: ${chainKey}`)
 
   switch (chain.type) {
-    case 'evm':
+    case 'evm': {
+      const evm = await import('./evm')
       return evm.openCapsule(chain, capsuleId, onStep)
+    }
     case 'solana':
       throw new Error('Solana 开启功能开发中')
     case 'sui':
@@ -122,8 +125,10 @@ export async function earlyOpenCapsuleOnChain(
   if (!chain) throw new Error(`Unknown chain: ${chainKey}`)
 
   switch (chain.type) {
-    case 'evm':
+    case 'evm': {
+      const evm = await import('./evm')
       return evm.earlyOpenCapsule(chain, capsuleId, onStep)
+    }
     default:
       throw new Error('提前解封仅支持 EVM 链')
   }
@@ -137,12 +142,18 @@ export async function fetchCapsuleFromChain(
   if (!chain) return null
 
   switch (chain.type) {
-    case 'evm':
+    case 'evm': {
+      const evm = await import('./evm')
       return evm.fetchCapsule(chain, capsuleId)
-    case 'solana':
-      return solana.fetchCapsuleSolana(chain, capsuleId)
-    case 'sui':
-      return sui.fetchCapsuleSui(chain, capsuleId)
+    }
+    case 'solana': {
+      const sol = await import('./solana')
+      return sol.fetchCapsuleSolana(chain, capsuleId)
+    }
+    case 'sui': {
+      const suiMod = await import('./sui')
+      return suiMod.fetchCapsuleSui(chain, capsuleId)
+    }
     default:
       return null
   }
@@ -157,6 +168,7 @@ export async function estimateGasForChain(
 
   switch (chain.type) {
     case 'evm': {
+      const evm = await import('./evm')
       const est = await evm.estimateGas(chain, params)
       return {
         totalUsd: est.totalUsd,
@@ -168,10 +180,14 @@ export async function estimateGasForChain(
         },
       }
     }
-    case 'solana':
-      return solana.estimateGasSolana(chain, params)
-    case 'sui':
-      return sui.estimateGasSui(chain, params)
+    case 'solana': {
+      const sol = await import('./solana')
+      return sol.estimateGasSolana(chain, params)
+    }
+    case 'sui': {
+      const suiMod = await import('./sui')
+      return suiMod.estimateGasSui(chain, params)
+    }
     default:
       return { totalUsd: 0 }
   }

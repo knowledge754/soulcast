@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useI18n } from '../stores/i18n'
 import { useWallet } from '../composables/useWallet'
 import Icon from '../components/icons/Icon.vue'
