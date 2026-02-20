@@ -71,7 +71,6 @@ function confirmDate() {
   const d = new Date(pickYear.value, pickMonth.value, pickDay.value, pickHour.value, pickMinute.value)
   unlockDate.value = d.toISOString().slice(0, 16)
   showDatePicker.value = false
-  activePreset.value = 0
 }
 const formattedDate = computed(() => {
   if (!unlockDate.value) return '选择开启时间…'
@@ -147,19 +146,7 @@ const lockModes = [
   { key: 'random' as const, icon: 'dice', name: '随机锁', desc: '设置时间范围，随机某天开启' },
 ]
 const unlockDate = ref('')
-const activePreset = ref(3)
 const allowEarlyUnlock = ref(false)
-
-const quickPresets = [
-  { years: 1, label: '1年' },
-  { years: 3, label: '3年' },
-  { years: 5, label: '5年' },
-  { years: 10, label: '10年' },
-  { years: 18, label: '18年' },
-  { years: 30, label: '30年' },
-  { years: 50, label: '50年' },
-  { years: 100, label: '100年' },
-]
 
 const durationText = computed(() => {
   if (!unlockDate.value) return ''
@@ -176,15 +163,6 @@ const durationText = computed(() => {
   if (months > 0) return `${months}个月${remainDays % 30}天`
   return `${days}天`
 })
-
-function setPreset(years: number) {
-  activePreset.value = years
-  if (years > 0) {
-    const d = new Date()
-    d.setFullYear(d.getFullYear() + years)
-    unlockDate.value = d.toISOString().slice(0, 16)
-  }
-}
 
 /* ═══ Create: Chain ═══ */
 const selectedChain = ref('bsc')
@@ -439,7 +417,6 @@ function closeOpenedContent() {
 }
 
 onMounted(() => {
-  setPreset(3)
 })
 
 /* ═══ Received ═══ */
@@ -673,75 +650,44 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 
                 <div class="form-section">
                   <div class="form-label">开启时间</div>
-                  <div class="time-layout">
-                    <div class="time-left">
-                      <div class="date-trigger" @click="showDatePicker = !showDatePicker">
-                        <Icon name="clock" :size="14" />
-                        <span class="date-display">{{ formattedDate }}</span>
-                        <span class="date-arrow">▾</span>
-                      </div>
-                      <Transition name="ss-fade">
-                        <div v-if="showDatePicker" class="dp-panel">
-                          <div class="dp-backdrop" @click="showDatePicker = false"></div>
-                          <div class="dp-content">
-                            <div class="dp-header">
-                              <button class="dp-nav" @click="prevMonth">‹</button>
-                              <span class="dp-month">{{ pickYear }} 年 {{ pickMonth + 1 }} 月</span>
-                              <button class="dp-nav" @click="nextMonth">›</button>
-                            </div>
-                            <div class="dp-weekdays">
-                              <span v-for="w in ['一','二','三','四','五','六','日']" :key="w">{{ w }}</span>
-                            </div>
-                            <div class="dp-days">
-                              <span v-for="_ in firstDayOfWeek - 1" :key="'e'+_" class="dp-day empty"></span>
-                              <button v-for="d in daysInMonth" :key="d" class="dp-day" :class="{ active: d === pickDay }" @click="pickDay = d">{{ d }}</button>
-                            </div>
-                            <div class="dp-time">
-                              <div class="dp-time-group">
-                                <button class="dp-t-btn" @click="pickHour = (pickHour + 1) % 24">▲</button>
-                                <span class="dp-t-val">{{ String(pickHour).padStart(2,'0') }}</span>
-                                <button class="dp-t-btn" @click="pickHour = (pickHour + 23) % 24">▼</button>
-                              </div>
-                              <span class="dp-t-sep">:</span>
-                              <div class="dp-time-group">
-                                <button class="dp-t-btn" @click="pickMinute = (pickMinute + 1) % 60">▲</button>
-                                <span class="dp-t-val">{{ String(pickMinute).padStart(2,'0') }}</span>
-                                <button class="dp-t-btn" @click="pickMinute = (pickMinute + 59) % 60">▼</button>
-                              </div>
-                            </div>
-                            <button class="dp-confirm" @click="confirmDate">确认时间</button>
+                  <div class="date-trigger" @click="showDatePicker = !showDatePicker">
+                    <Icon name="clock" :size="14" />
+                    <span class="date-display">{{ formattedDate }}</span>
+                    <span class="date-arrow">▾</span>
+                  </div>
+                  <Transition name="ss-fade">
+                    <div v-if="showDatePicker" class="dp-panel">
+                      <div class="dp-backdrop" @click="showDatePicker = false"></div>
+                      <div class="dp-content">
+                        <div class="dp-header">
+                          <button class="dp-nav" @click="prevMonth">‹</button>
+                          <span class="dp-month">{{ pickYear }} 年 {{ pickMonth + 1 }} 月</span>
+                          <button class="dp-nav" @click="nextMonth">›</button>
+                        </div>
+                        <div class="dp-weekdays">
+                          <span v-for="w in ['一','二','三','四','五','六','日']" :key="w">{{ w }}</span>
+                        </div>
+                        <div class="dp-days">
+                          <span v-for="_ in firstDayOfWeek - 1" :key="'e'+_" class="dp-day empty"></span>
+                          <button v-for="d in daysInMonth" :key="d" class="dp-day" :class="{ active: d === pickDay }" @click="pickDay = d">{{ d }}</button>
+                        </div>
+                        <div class="dp-time">
+                          <div class="dp-time-group">
+                            <button class="dp-t-btn" @click="pickHour = (pickHour + 1) % 24">▲</button>
+                            <span class="dp-t-val">{{ String(pickHour).padStart(2,'0') }}</span>
+                            <button class="dp-t-btn" @click="pickHour = (pickHour + 23) % 24">▼</button>
+                          </div>
+                          <span class="dp-t-sep">:</span>
+                          <div class="dp-time-group">
+                            <button class="dp-t-btn" @click="pickMinute = (pickMinute + 1) % 60">▲</button>
+                            <span class="dp-t-val">{{ String(pickMinute).padStart(2,'0') }}</span>
+                            <button class="dp-t-btn" @click="pickMinute = (pickMinute + 59) % 60">▼</button>
                           </div>
                         </div>
-                      </Transition>
-                    </div>
-
-                    <div v-if="unlockDate" class="time-visual">
-                      <div class="tv-point seal">
-                        <div class="tv-dot seal-dot"></div>
-                        <div class="tv-info">
-                          <div class="tv-label">封存时间</div>
-                          <div class="tv-date">{{ new Date().toISOString().slice(0,10).replace(/-/g, '.') }}</div>
-                        </div>
-                      </div>
-                      <div class="tv-line">
-                        <div class="tv-line-inner"></div>
-                        <div class="tv-duration">{{ durationText }}</div>
-                      </div>
-                      <div class="tv-point open">
-                        <div class="tv-dot open-dot"></div>
-                        <div class="tv-info">
-                          <div class="tv-label">开启时间</div>
-                          <div class="tv-date">{{ formattedDate }}</div>
-                        </div>
+                        <button class="dp-confirm" @click="confirmDate">确认时间</button>
                       </div>
                     </div>
-                  </div>
-
-                  <div class="quick-presets">
-                    <button v-for="p in quickPresets" :key="p.years" class="qp-btn" :class="{ active: activePreset === p.years }" @click="setPreset(p.years)">
-                      {{ p.label }}
-                    </button>
-                  </div>
+                  </Transition>
                 </div>
 
                 <div class="form-section">
@@ -929,6 +875,25 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
                 <span class="meta-label">加密</span>
                 <span class="meta-val green">✓ 端对端</span>
               </div>
+              <Transition name="ss-fade">
+                <div v-if="unlockDate" class="tv-horizontal">
+                  <div class="tv-h-point">
+                    <div class="tv-h-dot seal-dot"></div>
+                    <div class="tv-h-label">封存</div>
+                    <div class="tv-h-date">{{ new Date().toISOString().slice(0,10).replace(/-/g, '.') }}</div>
+                  </div>
+                  <div class="tv-h-track">
+                    <div class="tv-h-line"></div>
+                    <div class="tv-h-dur">{{ durationText }}</div>
+                  </div>
+                  <div class="tv-h-point">
+                    <div class="tv-h-dot open-dot"></div>
+                    <div class="tv-h-label">开启</div>
+                    <div class="tv-h-date">{{ formattedDate }}</div>
+                  </div>
+                </div>
+              </Transition>
+
               <div v-if="lockedTokens.length > 0" class="meta-item">
                 <span class="meta-label">Token</span>
                 <span class="meta-val gold">{{ lockedTokens.length }} 种</span>
@@ -1633,55 +1598,33 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 .lm-name { font-size: 13px; font-weight: 600; }
 .lm-desc { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
 
-/* Time Layout */
-.time-layout { display: flex; gap: 16px; align-items: flex-start; }
-.time-left { flex: 1; min-width: 0; }
-
-/* Time Visual — seal → open */
-.time-visual {
-  width: 180px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center;
-  padding: 14px 16px; border-radius: 14px;
-  background: rgba(99,179,237,0.03); border: 1px solid rgba(99,179,237,0.08);
+/* Time Visual — Horizontal in Sidebar */
+.tv-horizontal {
+  display: flex; align-items: center; gap: 0;
+  padding: 12px; margin: 8px 0;
+  border-radius: 10px; background: rgba(99,179,237,0.03);
+  border: 1px solid rgba(99,179,237,0.08);
 }
-.tv-point { display: flex; align-items: center; gap: 10px; width: 100%; }
-.tv-dot {
-  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
-  box-shadow: 0 0 8px currentColor;
+.tv-h-point { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; min-width: 0; }
+.tv-h-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  box-shadow: 0 0 6px currentColor;
 }
-.seal-dot { background: var(--star-blue); color: rgba(99,179,237,0.5); }
-.open-dot { background: var(--star-gold); color: rgba(251,191,36,0.5); }
-.tv-info { min-width: 0; }
-.tv-label { font-size: 9px; color: var(--text-muted); letter-spacing: 0.5px; text-transform: uppercase; }
-.tv-date { font-size: 12px; font-weight: 600; color: var(--text-primary); font-family: var(--font-mono); margin-top: 1px; }
-.tv-point.seal .tv-date { color: var(--star-blue); }
-.tv-point.open .tv-date { color: var(--star-gold); }
-.tv-line {
-  width: 2px; height: 32px; margin: 4px 0 4px 4px; position: relative;
-  display: flex; align-items: center;
+.tv-h-dot.seal-dot { background: var(--star-blue); color: rgba(99,179,237,0.5); }
+.tv-h-dot.open-dot { background: var(--star-gold); color: rgba(251,191,36,0.5); }
+.tv-h-label { font-size: 9px; color: var(--text-muted); margin-top: 4px; letter-spacing: 0.5px; }
+.tv-h-date { font-size: 10px; font-weight: 600; font-family: var(--font-mono); color: var(--text-secondary); margin-top: 1px; white-space: nowrap; }
+.tv-h-point:first-child .tv-h-date { color: var(--star-blue); }
+.tv-h-point:last-child .tv-h-date { color: var(--star-gold); }
+.tv-h-track { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 0 6px; min-width: 30px; }
+.tv-h-line {
+  width: 100%; height: 2px; border-radius: 1px;
+  background: linear-gradient(90deg, var(--star-blue), var(--star-gold));
+  opacity: 0.4; margin-top: 3px;
 }
-.tv-line-inner {
-  width: 2px; height: 100%; border-radius: 1px;
-  background: linear-gradient(to bottom, var(--star-blue), var(--star-gold));
-  opacity: 0.4;
-}
-.tv-duration {
-  position: absolute; left: 14px; white-space: nowrap;
-  font-size: 11px; font-weight: 700; color: var(--text-secondary);
-  font-family: var(--font-mono); letter-spacing: 0.3px;
-}
-
-/* Quick Presets */
-.quick-presets { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
-.qp-btn {
-  padding: 5px 12px; border-radius: 8px; font-size: 12px; font-family: var(--font-mono);
-  color: var(--text-muted); background: rgba(255,255,255,0.02);
-  border: 1px solid rgba(255,255,255,0.06); cursor: pointer;
-  transition: all 0.2s; font-weight: 500;
-}
-.qp-btn:hover { color: var(--text-secondary); border-color: rgba(99,179,237,0.2); background: rgba(99,179,237,0.04); }
-.qp-btn.active {
-  color: var(--star-blue); border-color: rgba(99,179,237,0.4);
-  background: rgba(99,179,237,0.08); font-weight: 700;
+.tv-h-dur {
+  font-size: 10px; font-weight: 700; color: var(--text-primary); font-family: var(--font-mono);
+  margin-top: 4px; white-space: nowrap;
 }
 
 /* Unlock */
