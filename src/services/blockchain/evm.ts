@@ -5,8 +5,8 @@
 import { ethers } from 'ethers'
 import { CAPSULE_ABI, ERC20_ABI, ERC721_ABI, ERC1155_ABI } from './abi'
 import type { ChainConfig } from './chains'
-import { getRpcUrl } from './chains'
-import type { CreateCapsuleParams, OnChainCapsule, TxStep, TxStepCallback } from './types'
+import { getRpcUrl, getContractAddress } from './chains'
+import type { CreateCapsuleParams, OnChainCapsule, TxStepCallback } from './types'
 
 function getProvider(chain: ChainConfig): ethers.JsonRpcProvider {
   return new ethers.JsonRpcProvider(getRpcUrl(chain))
@@ -24,7 +24,7 @@ async function getSigner(): Promise<ethers.JsonRpcSigner> {
 }
 
 function getCapsuleContract(chain: ChainConfig, signerOrProvider: ethers.Signer | ethers.Provider) {
-  return new ethers.Contract(chain.capsuleContract, CAPSULE_ABI, signerOrProvider)
+  return new ethers.Contract(getContractAddress(chain), CAPSULE_ABI, signerOrProvider)
 }
 
 export async function switchToChain(chain: ChainConfig): Promise<void> {
@@ -119,10 +119,10 @@ export async function createCapsule(
 
     const erc20 = new ethers.Contract(tk.address, ERC20_ABI, signer)
     const amount = ethers.parseUnits(tk.amount, tk.decimals)
-    const allowance: bigint = await erc20.allowance(userAddr, chain.capsuleContract)
+    const allowance: bigint = await erc20.allowance(userAddr, getContractAddress(chain))
 
     if (allowance < amount) {
-      const approveTx = await erc20.approve(chain.capsuleContract, amount)
+      const approveTx = await erc20.approve(getContractAddress(chain), amount)
       await approveTx.wait()
     }
 
@@ -146,16 +146,16 @@ export async function createCapsule(
 
     if (nft.standard === 'ERC-1155' || nft.standard === 'BEP-1155') {
       const erc1155 = new ethers.Contract(nft.contractAddress, ERC1155_ABI, signer)
-      const approved: boolean = await erc1155.isApprovedForAll(userAddr, chain.capsuleContract)
+      const approved: boolean = await erc1155.isApprovedForAll(userAddr, getContractAddress(chain))
       if (!approved) {
-        const tx = await erc1155.setApprovalForAll(chain.capsuleContract, true)
+        const tx = await erc1155.setApprovalForAll(getContractAddress(chain), true)
         await tx.wait()
       }
     } else {
       const erc721 = new ethers.Contract(nft.contractAddress, ERC721_ABI, signer)
-      const approved: boolean = await erc721.isApprovedForAll(userAddr, chain.capsuleContract)
+      const approved: boolean = await erc721.isApprovedForAll(userAddr, getContractAddress(chain))
       if (!approved) {
-        const tx = await erc721.setApprovalForAll(chain.capsuleContract, true)
+        const tx = await erc721.setApprovalForAll(getContractAddress(chain), true)
         await tx.wait()
       }
     }

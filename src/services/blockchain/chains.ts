@@ -5,11 +5,12 @@ export interface ChainConfig {
   name: string
   symbol: string
   type: ChainType
-  chainId?: number             // EVM only
+  chainId?: number
   rpcUrl: string
   rpcUrlTestnet?: string
   explorerUrl: string
-  capsuleContract: string      // deployed contract address (testnet for now)
+  capsuleContract: string
+  capsuleContractTestnet?: string
   color: string
   fee: string
   icon: string
@@ -21,7 +22,24 @@ export interface ChainConfig {
   ipfsGateway?: string
 }
 
+// Hardhat 本地节点部署的合约地址
+const LOCAL_CONTRACT = '0x5FbDB2315678afecb367f032d93F642f64180aa3'
+
 export const CHAINS: Record<string, ChainConfig> = {
+  localhost: {
+    key: 'localhost',
+    name: 'Localhost',
+    symbol: 'ETH',
+    type: 'evm',
+    chainId: 31337,
+    rpcUrl: 'http://127.0.0.1:8545',
+    explorerUrl: 'http://localhost:8545',
+    capsuleContract: LOCAL_CONTRACT,
+    color: '#22c55e',
+    fee: '~$0.00',
+    icon: 'hexagon',
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  },
   bsc: {
     key: 'bsc',
     name: 'BSC',
@@ -32,6 +50,7 @@ export const CHAINS: Record<string, ChainConfig> = {
     rpcUrlTestnet: 'https://data-seed-prebsc-1-s1.binance.org:8545',
     explorerUrl: 'https://bscscan.com',
     capsuleContract: '0x0000000000000000000000000000000000000000',
+    capsuleContractTestnet: '0x0000000000000000000000000000000000000000',
     color: '#F0B90B',
     fee: '~$0.05',
     icon: 'hexagon',
@@ -47,6 +66,7 @@ export const CHAINS: Record<string, ChainConfig> = {
     rpcUrlTestnet: 'https://eth-sepolia.g.alchemy.com/v2/demo',
     explorerUrl: 'https://etherscan.io',
     capsuleContract: '0x0000000000000000000000000000000000000000',
+    capsuleContractTestnet: '0x0000000000000000000000000000000000000000',
     color: '#627EEA',
     fee: '~$2.5',
     icon: 'hexagon',
@@ -62,6 +82,7 @@ export const CHAINS: Record<string, ChainConfig> = {
     rpcUrlTestnet: 'https://sepolia.base.org',
     explorerUrl: 'https://basescan.org',
     capsuleContract: '0x0000000000000000000000000000000000000000',
+    capsuleContractTestnet: '0x0000000000000000000000000000000000000000',
     color: '#0052FF',
     fee: '~$0.005',
     icon: 'hexagon',
@@ -77,6 +98,7 @@ export const CHAINS: Record<string, ChainConfig> = {
     rpcUrlTestnet: 'https://api.avax-test.network/ext/bc/C/rpc',
     explorerUrl: 'https://snowtrace.io',
     capsuleContract: '0x0000000000000000000000000000000000000000',
+    capsuleContractTestnet: '0x0000000000000000000000000000000000000000',
     color: '#E84142',
     fee: '~$0.01',
     icon: 'hexagon',
@@ -90,7 +112,7 @@ export const CHAINS: Record<string, ChainConfig> = {
     rpcUrl: 'https://api.mainnet-beta.solana.com',
     rpcUrlTestnet: 'https://api.devnet.solana.com',
     explorerUrl: 'https://solscan.io',
-    capsuleContract: '11111111111111111111111111111111', // Solana program ID placeholder
+    capsuleContract: '11111111111111111111111111111111',
     color: '#9945FF',
     fee: '~$0.001',
     icon: 'hexagon',
@@ -138,5 +160,13 @@ export function isTestnet(): boolean {
 }
 
 export function getRpcUrl(chain: ChainConfig): string {
+  if (chain.key === 'localhost') return chain.rpcUrl
   return (isTestnet() && chain.rpcUrlTestnet) ? chain.rpcUrlTestnet : chain.rpcUrl
+}
+
+export function getContractAddress(chain: ChainConfig): string {
+  if (chain.key === 'localhost') return chain.capsuleContract
+  return (isTestnet() && chain.capsuleContractTestnet)
+    ? chain.capsuleContractTestnet
+    : chain.capsuleContract
 }

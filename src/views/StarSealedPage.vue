@@ -174,7 +174,7 @@ const durationText = computed(() => {
 })
 
 /* ═══ Create: Chain ═══ */
-const selectedChain = ref('bsc')
+const selectedChain = ref('localhost')
 const chains = CHAIN_LIST.map(c => ({
   key: c.key, name: c.name, fee: c.fee, color: c.color, symbol: c.symbol, type: c.type,
 }))
