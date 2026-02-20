@@ -6,9 +6,23 @@
 export * from './types'
 export * from './chains'
 
-import { CHAINS } from './chains'
+import { CHAINS, getContractAddress } from './chains'
 import type { CreateCapsuleParams, TxStepCallback, OnChainCapsule, SealResult } from './types'
 import { ipfsService, type CapsuleContent } from '../ipfs'
+
+const ZERO_ADDR_EVM = '0x0000000000000000000000000000000000000000'
+const ZERO_ADDR_SUI = '0x0000000000000000000000000000000000000000000000000000000000000000'
+
+export function isContractDeployed(chainKey: string): boolean {
+  const chain = CHAINS[chainKey]
+  if (!chain) return false
+  const addr = getContractAddress(chain)
+  if (!addr) return false
+  if (chain.type === 'evm' && addr === ZERO_ADDR_EVM) return false
+  if (chain.type === 'sui' && addr === ZERO_ADDR_SUI) return false
+  if (chain.type === 'solana') return true
+  return true
+}
 
 export interface FullCreateParams {
   chain: string
@@ -33,6 +47,10 @@ export async function fullCreateCapsule(
 ): Promise<SealResult> {
   const chain = CHAINS[params.chain]
   if (!chain) throw new Error(`Unknown chain: ${params.chain}`)
+
+  if (!isContractDeployed(params.chain)) {
+    throw new Error(`${chain.name} 链上的时光胶囊合约尚未部署，无法封印。请切换到已部署合约的链（如 Localhost）后重试。`)
+  }
 
   onStep?.({ step: 'ipfs_upload', status: 'pending', message: '上传内容到 IPFS...' })
 

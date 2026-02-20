@@ -7,10 +7,8 @@ export interface ChainConfig {
   type: ChainType
   chainId?: number
   rpcUrl: string
-  rpcUrlTestnet?: string
   explorerUrl: string
   capsuleContract: string
-  capsuleContractTestnet?: string
   color: string
   fee: string
   icon: string
@@ -19,11 +17,15 @@ export interface ChainConfig {
     symbol: string
     decimals: number
   }
-  ipfsGateway?: string
 }
 
 // Hardhat 本地节点部署的合约地址
-const LOCAL_CONTRACT = '0x5FbDB2315678afecb367f032d93F642f64180aa3'
+const LOCAL_CONTRACT = '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0'
+
+// 测试网合约地址 — 部署后由 deploy-all.cjs 自动回写
+const BSC_TESTNET_CONTRACT = '0x0000000000000000000000000000000000000000'
+const SEPOLIA_CONTRACT = '0x0000000000000000000000000000000000000000'
+const FUJI_CONTRACT = '0x0000000000000000000000000000000000000000'
 
 export const CHAINS: Record<string, ChainConfig> = {
   localhost: {
@@ -42,75 +44,52 @@ export const CHAINS: Record<string, ChainConfig> = {
   },
   bsc: {
     key: 'bsc',
-    name: 'BSC',
-    symbol: 'BNB',
+    name: 'BSC Testnet',
+    symbol: 'tBNB',
     type: 'evm',
-    chainId: 56,
-    rpcUrl: 'https://bsc-dataseed1.binance.org',
-    rpcUrlTestnet: 'https://data-seed-prebsc-1-s1.binance.org:8545',
-    explorerUrl: 'https://bscscan.com',
-    capsuleContract: '0x0000000000000000000000000000000000000000',
-    capsuleContractTestnet: '0x0000000000000000000000000000000000000000',
+    chainId: 97,
+    rpcUrl: 'https://data-seed-prebsc-1-s1.binance.org:8545',
+    explorerUrl: 'https://testnet.bscscan.com',
+    capsuleContract: BSC_TESTNET_CONTRACT,
     color: '#F0B90B',
-    fee: '~$0.05',
+    fee: '~$0.01',
     icon: 'hexagon',
-    nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
+    nativeCurrency: { name: 'BNB', symbol: 'tBNB', decimals: 18 },
   },
   ethereum: {
     key: 'ethereum',
-    name: 'Ethereum',
-    symbol: 'ETH',
+    name: 'Sepolia',
+    symbol: 'SepoliaETH',
     type: 'evm',
-    chainId: 1,
-    rpcUrl: 'https://eth-mainnet.g.alchemy.com/v2/demo',
-    rpcUrlTestnet: 'https://eth-sepolia.g.alchemy.com/v2/demo',
-    explorerUrl: 'https://etherscan.io',
-    capsuleContract: '0x0000000000000000000000000000000000000000',
-    capsuleContractTestnet: '0x0000000000000000000000000000000000000000',
+    chainId: 11155111,
+    rpcUrl: 'https://rpc.sepolia.org',
+    explorerUrl: 'https://sepolia.etherscan.io',
+    capsuleContract: SEPOLIA_CONTRACT,
     color: '#627EEA',
-    fee: '~$2.5',
+    fee: '~$0.05',
     icon: 'hexagon',
-    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-  },
-  base: {
-    key: 'base',
-    name: 'Base',
-    symbol: 'ETH',
-    type: 'evm',
-    chainId: 8453,
-    rpcUrl: 'https://mainnet.base.org',
-    rpcUrlTestnet: 'https://sepolia.base.org',
-    explorerUrl: 'https://basescan.org',
-    capsuleContract: '0x0000000000000000000000000000000000000000',
-    capsuleContractTestnet: '0x0000000000000000000000000000000000000000',
-    color: '#0052FF',
-    fee: '~$0.005',
-    icon: 'hexagon',
-    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+    nativeCurrency: { name: 'Sepolia Ether', symbol: 'SepoliaETH', decimals: 18 },
   },
   avalanche: {
     key: 'avalanche',
-    name: 'Avalanche',
+    name: 'Fuji (AVAX)',
     symbol: 'AVAX',
     type: 'evm',
-    chainId: 43114,
-    rpcUrl: 'https://api.avax.network/ext/bc/C/rpc',
-    rpcUrlTestnet: 'https://api.avax-test.network/ext/bc/C/rpc',
-    explorerUrl: 'https://snowtrace.io',
-    capsuleContract: '0x0000000000000000000000000000000000000000',
-    capsuleContractTestnet: '0x0000000000000000000000000000000000000000',
+    chainId: 43113,
+    rpcUrl: 'https://api.avax-test.network/ext/bc/C/rpc',
+    explorerUrl: 'https://testnet.snowtrace.io',
+    capsuleContract: FUJI_CONTRACT,
     color: '#E84142',
-    fee: '~$0.01',
+    fee: '~$0.005',
     icon: 'hexagon',
     nativeCurrency: { name: 'Avalanche', symbol: 'AVAX', decimals: 18 },
   },
   solana: {
     key: 'solana',
-    name: 'Solana',
+    name: 'Solana Devnet',
     symbol: 'SOL',
     type: 'solana',
-    rpcUrl: 'https://api.mainnet-beta.solana.com',
-    rpcUrlTestnet: 'https://api.devnet.solana.com',
+    rpcUrl: 'https://api.devnet.solana.com',
     explorerUrl: 'https://solscan.io',
     capsuleContract: '11111111111111111111111111111111',
     color: '#9945FF',
@@ -120,31 +99,16 @@ export const CHAINS: Record<string, ChainConfig> = {
   },
   sui: {
     key: 'sui',
-    name: 'Sui',
+    name: 'Sui Testnet',
     symbol: 'SUI',
     type: 'sui',
-    rpcUrl: 'https://fullnode.mainnet.sui.io',
-    rpcUrlTestnet: 'https://fullnode.testnet.sui.io',
-    explorerUrl: 'https://suiscan.xyz',
+    rpcUrl: 'https://fullnode.testnet.sui.io',
+    explorerUrl: 'https://suiscan.xyz/testnet',
     capsuleContract: '0x0000000000000000000000000000000000000000000000000000000000000000',
     color: '#4DA2FF',
     fee: '~$0.002',
     icon: 'hexagon',
     nativeCurrency: { name: 'Sui', symbol: 'SUI', decimals: 9 },
-  },
-  chainlink: {
-    key: 'chainlink',
-    name: 'Chainlink',
-    symbol: 'LINK',
-    type: 'evm',
-    chainId: 1,
-    rpcUrl: 'https://eth-mainnet.g.alchemy.com/v2/demo',
-    explorerUrl: 'https://etherscan.io',
-    capsuleContract: '0x0000000000000000000000000000000000000000',
-    color: '#375BD2',
-    fee: '~$2.0',
-    icon: 'hexagon',
-    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   },
 }
 
@@ -155,18 +119,10 @@ export function getChainByChainId(chainId: number): ChainConfig | undefined {
   return EVM_CHAINS.find(c => c.chainId === chainId)
 }
 
-export function isTestnet(): boolean {
-  return localStorage.getItem('chainlog_testnet') === 'true'
-}
-
 export function getRpcUrl(chain: ChainConfig): string {
-  if (chain.key === 'localhost') return chain.rpcUrl
-  return (isTestnet() && chain.rpcUrlTestnet) ? chain.rpcUrlTestnet : chain.rpcUrl
+  return chain.rpcUrl
 }
 
 export function getContractAddress(chain: ChainConfig): string {
-  if (chain.key === 'localhost') return chain.capsuleContract
-  return (isTestnet() && chain.capsuleContractTestnet)
-    ? chain.capsuleContractTestnet
-    : chain.capsuleContract
+  return chain.capsuleContract
 }

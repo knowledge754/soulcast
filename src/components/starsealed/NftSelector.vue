@@ -22,12 +22,12 @@ const emit = defineEmits<{
 }>()
 
 const MOCK_NFTS: LockedNft[] = [
-  { contractAddress: '0xBCf…1a2', tokenId: '1042', name: 'Bored Ape #1042', collection: 'BAYC', image: 'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=200&h=200&fit=crop', standard: 'BEP-721' },
-  { contractAddress: '0xA1f…3b4', tokenId: '7721', name: 'CryptoPunk #7721', collection: 'Punks', image: 'https://images.unsplash.com/photo-1635322966219-b75ed372eb01?w=200&h=200&fit=crop', standard: 'BEP-721' },
-  { contractAddress: '0xC3d…5e6', tokenId: '256', name: 'Doodle #256', collection: 'Doodles', image: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=200&h=200&fit=crop', standard: 'BEP-721' },
-  { contractAddress: '0xD4e…7f8', tokenId: '88', name: 'Azuki #88', collection: 'Azuki', image: 'https://images.unsplash.com/photo-1634986666676-ec8fd927c23d?w=200&h=200&fit=crop', standard: 'BEP-721' },
-  { contractAddress: '0xE5f…9a0', tokenId: '512', name: 'CloneX #512', collection: 'CloneX', image: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=200&h=200&fit=crop', standard: 'BEP-721' },
-  { contractAddress: '0xF6a…1b2', tokenId: '333', name: 'Moonbird #333', collection: 'Moonbirds', image: 'https://images.unsplash.com/photo-1642104704074-907c0698cbd9?w=200&h=200&fit=crop', standard: 'BEP-721' },
+  { contractAddress: '0xBCf4783e35a4Ad5273cC07A8ECfA0f6BDe2661a2', tokenId: '1042', name: 'Bored Ape #1042', collection: 'BAYC', image: 'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=200&h=200&fit=crop', standard: 'BEP-721' },
+  { contractAddress: '0xA1f0d924cBa81e8F1966E46CaF6753b4067513b4', tokenId: '7721', name: 'CryptoPunk #7721', collection: 'Punks', image: 'https://images.unsplash.com/photo-1635322966219-b75ed372eb01?w=200&h=200&fit=crop', standard: 'BEP-721' },
+  { contractAddress: '0xC3d57A8E62C1247f2098b91E5c7a0b9dFea015e6', tokenId: '256', name: 'Doodle #256', collection: 'Doodles', image: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=200&h=200&fit=crop', standard: 'BEP-721' },
+  { contractAddress: '0xD4e0c159F5EaA843b7f3C91dD4b8C0a72B5E37f8', tokenId: '88', name: 'Azuki #88', collection: 'Azuki', image: 'https://images.unsplash.com/photo-1634986666676-ec8fd927c23d?w=200&h=200&fit=crop', standard: 'BEP-721' },
+  { contractAddress: '0xE5f18d3CAb75a1F4c8e0A29Fe71f6372D80E09a0', tokenId: '512', name: 'CloneX #512', collection: 'CloneX', image: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=200&h=200&fit=crop', standard: 'BEP-721' },
+  { contractAddress: '0xF6a1b2c9E8d7043fAB56e3d91C8572FE4A9e01b2', tokenId: '333', name: 'Moonbird #333', collection: 'Moonbirds', image: 'https://images.unsplash.com/photo-1642104704074-907c0698cbd9?w=200&h=200&fit=crop', standard: 'BEP-721' },
 ]
 
 const selected = ref<Set<string>>(new Set())

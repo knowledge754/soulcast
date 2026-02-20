@@ -36,6 +36,7 @@ export interface WalletState {
   chainName: string
   balance: string
   providerName: string
+  walletType: 'evm' | 'solana' | 'sui' | ''
 }
 
 interface EIP6963ProviderInfo {
@@ -296,7 +297,8 @@ export function useWallet() {
     chainId: 0,
     chainName: '',
     balance: '0',
-    providerName: ''
+    providerName: '',
+    walletType: ''
   })
 
   const showModal = computed({
@@ -350,36 +352,12 @@ export function useWallet() {
         eip6963Icon: getEIP6963Icon('binance'),
       },
       {
-        id: 'trust', name: 'Trust Wallet', icon: 'trust',
-        color: 'linear-gradient(135deg, #3375BB, #0500FF)',
-        description: '安全可信赖的多链钱包',
-        downloadUrl: 'https://trustwallet.com/',
-        detected: isDetectedViaEIP6963('trust') || !!window.trustwallet,
-        eip6963Icon: getEIP6963Icon('trust'),
-      },
-      {
         id: 'imtoken', name: 'imToken', icon: 'imtoken',
         color: 'linear-gradient(135deg, #11C4D1, #0062AD)',
         description: '去中心化数字钱包',
         downloadUrl: 'https://token.im/',
         detected: isDetectedViaEIP6963('imtoken') || !!window.imToken,
         eip6963Icon: getEIP6963Icon('imtoken'),
-      },
-      {
-        id: 'coinbase', name: 'Coinbase Wallet', icon: 'coinbase',
-        color: 'linear-gradient(135deg, #0052FF, #0039B3)',
-        description: 'Coinbase 官方钱包',
-        downloadUrl: 'https://www.coinbase.com/wallet',
-        detected: isDetectedViaEIP6963('coinbase') || !!window.coinbaseWalletExtension,
-        eip6963Icon: getEIP6963Icon('coinbase'),
-      },
-      {
-        id: 'huobi', name: '火币钱包', icon: 'huobi',
-        color: 'linear-gradient(135deg, #2DAF68, #1B8A4E)',
-        description: '火币生态链官方钱包',
-        downloadUrl: 'https://www.htx.com/wallet',
-        detected: isDetectedViaEIP6963('huobi'),
-        eip6963Icon: getEIP6963Icon('huobi'),
       },
       {
         id: 'onekey', name: 'OneKey', icon: 'onekey',
@@ -601,91 +579,160 @@ export function useWallet() {
     return null
   }
 
+  /**
+   * 获取某钱包所有可用的 provider 候选，按优先级排序。
+   * 当前一个候选被秒拒（疑似劫持）时，connectWallet 会尝试下一个。
+   */
+  function getProviderCandidates(walletId: string): Array<{ provider: EthereumProvider; source: string }> {
+    const result: Array<{ provider: EthereumProvider; source: string }> = []
+    const seen = new Set<EthereumProvider>()
+    const eth = window.ethereum
+    const okxHijack = isOKXPresent()
+
+    function add(p: EthereumProvider, src: string) {
+      if (!seen.has(p)) { seen.add(p); result.push({ provider: p, source: src }) }
+    }
+
+    // ① EIP-6963
+    const eip6963 = findEIP6963Provider(walletId)
+    if (eip6963) {
+      const detail = eip6963Providers.value.find(d => d.provider === eip6963)
+      if (walletId === 'okx' || isGenuineNamespaceProvider(eip6963, `EIP-6963(${detail?.info.rdns})`)) {
+        add(eip6963, `EIP-6963(${detail?.info.rdns})`)
+      }
+    }
+
+    // ② 独立全局注入
+    if (walletId === 'okx' && window.okxwallet) {
+      add(window.okxwallet, 'window.okxwallet')
+    }
+    if (walletId === 'tokenpocket' && window.tokenpocket?.ethereum) {
+      if (isGenuineNamespaceProvider(window.tokenpocket.ethereum, 'window.tokenpocket.ethereum')) {
+        add(window.tokenpocket.ethereum, 'window.tokenpocket.ethereum')
+      }
+    }
+    if (walletId === 'binance' && window.BinanceChain) {
+      if (isGenuineNamespaceProvider(window.BinanceChain, 'window.BinanceChain')) {
+        add(window.BinanceChain, 'window.BinanceChain')
+      }
+    }
+    if (walletId === 'onekey') {
+      const ok = window.$onekey?.ethereum || window.onekey?.ethereum
+      if (ok && isGenuineNamespaceProvider(ok, 'window.onekey.ethereum')) {
+        add(ok, 'window.onekey.ethereum')
+      }
+    }
+
+    // ③ providers 数组
+    if (eth?.providers && Array.isArray(eth.providers)) {
+      for (let i = 0; i < eth.providers.length; i++) {
+        const p = eth.providers[i]
+        if (walletId !== 'okx' && (p.isOKExWallet || p.isOkxWallet || p === window.okxwallet)) continue
+        let match = false
+        switch (walletId) {
+          case 'metamask': match = !!p.isMetaMask && !!(p as EthereumProvider)._metamask; break
+          case 'tokenpocket': match = !!p.isTokenPocket; break
+          case 'imtoken': match = !!p.isImToken; break
+          case 'onekey': match = !!p.isOneKey; break
+          case 'okx': match = !!p.isOKExWallet || !!p.isOkxWallet; break
+          case 'binance': match = !!p.isBinance; break
+        }
+        if (match) add(p, `providers[${i}]`)
+      }
+    }
+
+    // ④ window.ethereum（无 OKX 劫持时）
+    if (eth && !okxHijack) {
+      let match = false
+      if (walletId === 'metamask' && eth.isMetaMask && !eth.isTokenPocket) match = true
+      if (walletId === 'tokenpocket' && eth.isTokenPocket) match = true
+      if (walletId === 'binance' && eth.isBinance) match = true
+      if (walletId === 'imtoken' && eth.isImToken) match = true
+      if (walletId === 'onekey' && eth.isOneKey) match = true
+      if (match) add(eth, 'window.ethereum')
+    }
+    if (eth && walletId === 'okx' && (eth.isOKExWallet || eth.isOkxWallet)) {
+      add(eth, 'window.ethereum(okx)')
+    }
+
+    // ⑤ 硬件钱包通过 MetaMask 桥接
+    if (walletId === 'ledger' || walletId === 'trezor') {
+      const mm = findEIP6963Provider('metamask')
+      if (mm) add(mm, 'metamask-bridge(EIP-6963)')
+      if (eth?.providers) {
+        const mmP = eth.providers.find(
+          (p: EthereumProvider) => p.isMetaMask && (p as EthereumProvider)._metamask
+        )
+        if (mmP) add(mmP, 'metamask-bridge(providers)')
+      }
+    }
+
+    console.log(`[ChainLog] ${walletId} 找到 ${result.length} 个候选:`, result.map(r => r.source))
+    return result
+  }
+
   /* ══════════ 连接钱包 ══════════ */
   async function connectWallet(walletId: string) {
     connecting.value = true
     connectingId.value = walletId
     error.value = ''
-    let requestStart = Date.now()
 
-    // Handle Solana wallet (Phantom)
+    // Phantom (Solana)
     if (walletId === 'phantom') {
       try {
         const phantom = window.phantom?.solana
         if (!phantom) {
           error.value = '未检测到 Phantom 钱包，请安装 Phantom 浏览器扩展'
-          connecting.value = false
-          connectingId.value = ''
           return
         }
         const resp = await phantom.connect()
         const address = resp.publicKey.toBase58()
         state.value = {
-          connected: true,
-          address,
+          connected: true, address,
           shortAddress: address.slice(0, 4) + '...' + address.slice(-4),
-          chainId: 0,
-          chainName: 'Solana',
-          balance: '- SOL',
-          providerName: 'Phantom'
+          chainId: 0, chainName: 'Solana', balance: '- SOL',
+          providerName: 'Phantom', walletType: 'solana'
         }
         localStorage.setItem('chainlog_wallet', JSON.stringify({ walletId: 'phantom', address, chainId: 0 }))
         showModal.value = false
       } catch (err: unknown) {
-        const e = err as { message?: string }
-        error.value = e.message || 'Phantom 连接失败'
-      } finally {
-        connecting.value = false
-        connectingId.value = ''
-      }
+        error.value = (err as { message?: string }).message || 'Phantom 连接失败'
+      } finally { connecting.value = false; connectingId.value = '' }
       return
     }
 
-    // Handle Sui wallet
+    // Sui Wallet
     if (walletId === 'suiwallet') {
       try {
         const suiWallet = window.suiWallet
         if (!suiWallet) {
           error.value = '未检测到 Sui Wallet，请安装 Sui Wallet 浏览器扩展'
-          connecting.value = false
-          connectingId.value = ''
           return
         }
         const hasPerms = await suiWallet.hasPermissions()
         if (!hasPerms) await suiWallet.requestPermissions()
         const accounts = await suiWallet.getAccounts()
-        if (accounts.length === 0) {
-          error.value = 'Sui Wallet 未授权'
-          connecting.value = false
-          connectingId.value = ''
-          return
-        }
+        if (accounts.length === 0) { error.value = 'Sui Wallet 未授权'; return }
         const address = accounts[0].address
         state.value = {
-          connected: true,
-          address,
+          connected: true, address,
           shortAddress: address.slice(0, 6) + '...' + address.slice(-4),
-          chainId: 0,
-          chainName: 'Sui',
-          balance: '- SUI',
-          providerName: 'Sui Wallet'
+          chainId: 0, chainName: 'Sui', balance: '- SUI',
+          providerName: 'Sui Wallet', walletType: 'sui'
         }
         localStorage.setItem('chainlog_wallet', JSON.stringify({ walletId: 'suiwallet', address, chainId: 0 }))
         showModal.value = false
       } catch (err: unknown) {
-        const e = err as { message?: string }
-        error.value = e.message || 'Sui Wallet 连接失败'
-      } finally {
-        connecting.value = false
-        connectingId.value = ''
-      }
+        error.value = (err as { message?: string }).message || 'Sui Wallet 连接失败'
+      } finally { connecting.value = false; connectingId.value = '' }
       return
     }
 
+    // EVM wallets
     try {
-      const provider = getSpecificProvider(walletId)
+      const candidates = getProviderCandidates(walletId)
 
-      if (!provider) {
+      if (candidates.length === 0) {
         const wallet = walletList.value.find(w => w.id === walletId)
         const name = wallet?.name || walletId
         if (!window.ethereum) {
@@ -694,72 +741,109 @@ export function useWallet() {
           error.value = `未找到 ${name} 的专属连接通道，请确认已安装 ${name} 浏览器扩展并刷新页面`
         }
         connecting.value = false
+        connectingId.value = ''
         return
       }
 
-      console.log(`[ChainLog] 即将调用 eth_requestAccounts，provider 信息:`, {
-        isMetaMask: !!provider.isMetaMask,
-        isOKExWallet: !!provider.isOKExWallet,
-        isOkxWallet: !!provider.isOkxWallet,
-        isTokenPocket: !!provider.isTokenPocket,
-        _metamask: !!(provider as EthereumProvider)._metamask,
-        '===okxwallet': provider === window.okxwallet,
-        '===ethereum': provider === window.ethereum,
-        '===tp.ethereum': provider === window.tokenpocket?.ethereum,
-      })
+      let lastError: { code?: number; message?: string } | null = null
+      let success = false
 
-      currentProvider = provider
-      setConnectedProvider(provider as unknown as Parameters<typeof setConnectedProvider>[0])
+      // 连接成功的统一处理
+      async function onConnected(provider: EthereumProvider) {
+        const accounts = await provider.request({ method: 'eth_accounts' }) as string[]
+        if (!accounts || accounts.length === 0) return false
 
-      requestStart = Date.now()
-      const accounts = await provider.request({
-        method: 'eth_requestAccounts'
-      }) as string[]
+        const address = accounts[0]
+        const chainIdHex = await provider.request({ method: 'eth_chainId' }) as string
+        const chainId = hexToNumber(chainIdHex)
+        const balance = await getBalance(provider, address)
+        const actualName = detectProviderName(provider) || walletId
 
-      if (!accounts || accounts.length === 0) {
-        error.value = '用户拒绝了连接'
-        connecting.value = false
-        return
-      }
+        currentProvider = provider
+        setConnectedProvider(provider as unknown as Parameters<typeof setConnectedProvider>[0])
 
-      const address = accounts[0]
-      const chainIdHex = await provider.request({ method: 'eth_chainId' }) as string
-      const chainId = hexToNumber(chainIdHex)
-      const balance = await getBalance(provider, address)
-      const actualName = detectProviderName(provider) || walletId
-
-      state.value = {
-        connected: true,
-        address,
-        shortAddress: shortenAddress(address),
-        chainId,
-        chainName: CHAIN_MAP[chainId] || `Chain ${chainId}`,
-        balance: `${balance} ETH`,
-        providerName: actualName
-      }
-
-      localStorage.setItem('chainlog_wallet', JSON.stringify({
-        walletId,
-        address,
-        chainId
-      }))
-
-      showModal.value = false
-      setupListeners(provider)
-    } catch (err: unknown) {
-      const elapsed = Date.now() - requestStart
-      const e = err as { code?: number; message?: string }
-      if (e.code === 4001) {
-        if (elapsed < 1500) {
-          const wallet = walletList.value.find(w => w.id === walletId)
-          error.value = `${wallet?.name || walletId} 连接被自动拒绝（可能被其他钱包扩展劫持），请在浏览器扩展中禁用冲突的钱包后重试`
-          console.warn(`[ChainLog] ⚠️ eth_requestAccounts 在 ${elapsed}ms 内被拒绝（<1.5s），疑似 provider 被劫持`)
-        } else {
-          error.value = '用户取消了连接'
+        state.value = {
+          connected: true,
+          address,
+          shortAddress: shortenAddress(address),
+          chainId,
+          chainName: CHAIN_MAP[chainId] || `Chain ${chainId}`,
+          balance: `${balance} ETH`,
+          providerName: actualName,
+          walletType: 'evm'
         }
-      } else {
-        error.value = e.message || '连接失败，请重试'
+
+        localStorage.setItem('chainlog_wallet', JSON.stringify({ walletId, address, chainId }))
+        showModal.value = false
+        setupListeners(provider)
+        return true
       }
+
+      // 尝试三种请求方法来绕过 OKX 拦截
+      const REQUEST_METHODS = [
+        {
+          name: 'eth_requestAccounts',
+          fn: async (p: EthereumProvider) => {
+            const accs = await p.request({ method: 'eth_requestAccounts' }) as string[]
+            return accs && accs.length > 0
+          }
+        },
+        {
+          name: 'wallet_requestPermissions',
+          fn: async (p: EthereumProvider) => {
+            await p.request({
+              method: 'wallet_requestPermissions',
+              params: [{ eth_accounts: {} }]
+            })
+            const accs = await p.request({ method: 'eth_accounts' }) as string[]
+            return accs && accs.length > 0
+          }
+        },
+      ]
+
+      for (let ci = 0; ci < candidates.length && !success; ci++) {
+        const { provider, source } = candidates[ci]
+
+        for (let mi = 0; mi < REQUEST_METHODS.length && !success; mi++) {
+          const method = REQUEST_METHODS[mi]
+          console.log(`[ChainLog] 尝试 ${walletId} 候选${ci + 1}/${candidates.length} (${source}) 方法: ${method.name}`)
+
+          try {
+            // 唤醒目标钱包
+            try { await provider.request({ method: 'eth_chainId' }) } catch { /* ignore */ }
+            await new Promise(r => setTimeout(r, 200))
+
+            const ok = await method.fn(provider)
+            if (ok && await onConnected(provider)) {
+              success = true
+            }
+          } catch (err: unknown) {
+            const e = err as { code?: number; message?: string }
+            lastError = e
+            console.warn(`[ChainLog] ⚠️ ${source}/${method.name} 失败:`, e.code, e.message)
+
+            if (e.code === 4001) continue
+            break
+          }
+        }
+      }
+
+      if (!success) {
+        const wallet = walletList.value.find(w => w.id === walletId)
+        const name = wallet?.name || walletId
+        if (lastError?.code === 4001) {
+          if (isOKXPresent() && walletId !== 'okx') {
+            error.value = `${name} 连接被 OKX 钱包拦截。请打开 OKX 钱包扩展 → 设置 → 关闭「设为默认钱包」，然后刷新页面重试`
+          } else {
+            error.value = `${name} 拒绝了连接请求，请确认 ${name} 扩展已解锁后重试`
+          }
+        } else {
+          error.value = lastError?.message || '连接失败，请重试'
+        }
+      }
+    } catch (err: unknown) {
+      const e = err as { message?: string }
+      error.value = e.message || '连接失败，请重试'
     } finally {
       connecting.value = false
       connectingId.value = ''
@@ -793,7 +877,8 @@ export function useWallet() {
       chainId: 0,
       chainName: '',
       balance: '0',
-      providerName: ''
+      providerName: '',
+      walletType: ''
     }
     localStorage.removeItem('chainlog_wallet')
   }
@@ -842,6 +927,44 @@ export function useWallet() {
       if (!saved) return
 
       const { walletId } = JSON.parse(saved)
+
+      // Phantom 自动恢复
+      if (walletId === 'phantom') {
+        const phantom = window.phantom?.solana
+        if (phantom?.isConnected && phantom.publicKey) {
+          const address = phantom.publicKey.toBase58()
+          state.value = {
+            connected: true, address,
+            shortAddress: address.slice(0, 4) + '...' + address.slice(-4),
+            chainId: 0, chainName: 'Solana', balance: '- SOL',
+            providerName: 'Phantom', walletType: 'solana'
+          }
+        }
+        return
+      }
+      // Sui Wallet 自动恢复
+      if (walletId === 'suiwallet') {
+        const sui = window.suiWallet
+        if (sui) {
+          try {
+            const hasPerms = await sui.hasPermissions()
+            if (hasPerms) {
+              const accounts = await sui.getAccounts()
+              if (accounts.length > 0) {
+                const address = accounts[0].address
+                state.value = {
+                  connected: true, address,
+                  shortAddress: address.slice(0, 6) + '...' + address.slice(-4),
+                  chainId: 0, chainName: 'Sui', balance: '- SUI',
+                  providerName: 'Sui Wallet', walletType: 'sui'
+                }
+              }
+            }
+          } catch { /* silent */ }
+        }
+        return
+      }
+
       const provider = getSpecificProvider(walletId)
       if (!provider) return
 
@@ -861,7 +984,8 @@ export function useWallet() {
           chainId,
           chainName: CHAIN_MAP[chainId] || `Chain ${chainId}`,
           balance: `${balance} ETH`,
-          providerName: actualName
+          providerName: actualName,
+          walletType: 'evm'
         }
         setupListeners(provider)
       }

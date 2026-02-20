@@ -32,12 +32,7 @@ module.exports = {
       chainId: 11155111,
       accounts: [DEPLOYER_KEY],
     },
-    baseTestnet: {
-      url: "https://sepolia.base.org",
-      chainId: 84532,
-      accounts: [DEPLOYER_KEY],
-    },
-    avalancheTestnet: {
+    avalancheFuji: {
       url: "https://api.avax-test.network/ext/bc/C/rpc",
       chainId: 43113,
       accounts: [DEPLOYER_KEY],

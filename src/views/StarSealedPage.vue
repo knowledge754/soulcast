@@ -5,14 +5,17 @@ import { useWallet } from '../composables/useWallet'
 import Icon from '../components/icons/Icon.vue'
 import TokenSelector from '../components/starsealed/TokenSelector.vue'
 import NftSelector from '../components/starsealed/NftSelector.vue'
+import BlackholeCanvas from '../components/starsealed/BlackholeCanvas.vue'
 import type { LockedToken } from '../components/starsealed/TokenSelector.vue'
 import type { LockedNft } from '../components/starsealed/NftSelector.vue'
 import {
   fullCreateCapsule,
   openCapsuleOnChain,
+  earlyOpenCapsuleOnChain,
   CHAINS,
   CHAIN_LIST,
   getExplorerTxUrl,
+  isContractDeployed,
   type TxStep,
   type SealResult,
 } from '../services/blockchain'
@@ -57,11 +60,18 @@ function removeAttachment(id: number) {
 
 /* ═══ Custom Date Picker ═══ */
 const showDatePicker = ref(false)
-const pickYear = ref(new Date().getFullYear() + 3)
-const pickMonth = ref(new Date().getMonth())
-const pickDay = ref(new Date().getDate())
-const pickHour = ref(0)
-const pickMinute = ref(0)
+const showYearMonthPicker = ref(false)
+const _now = new Date()
+const pickYear = ref(_now.getFullYear())
+const pickMonth = ref(_now.getMonth())
+const pickDay = ref(_now.getDate())
+const pickHour = ref(_now.getHours())
+const pickMinute = ref(_now.getMinutes())
+
+const yearRange = computed(() => {
+  const cur = new Date().getFullYear()
+  return Array.from({ length: 20 }, (_, i) => cur + i)
+})
 
 const daysInMonth = computed(() => new Date(pickYear.value, pickMonth.value + 1, 0).getDate())
 const firstDayOfWeek = computed(() => new Date(pickYear.value, pickMonth.value, 1).getDay() || 7)
@@ -76,15 +86,23 @@ function nextMonth() {
   else pickMonth.value++
   if (pickDay.value > daysInMonth.value) pickDay.value = daysInMonth.value
 }
+function selectYearMonth(y: number, m: number) {
+  pickYear.value = y
+  pickMonth.value = m
+  if (pickDay.value > daysInMonth.value) pickDay.value = daysInMonth.value
+  showYearMonthPicker.value = false
+}
 function confirmDate() {
-  const d = new Date(pickYear.value, pickMonth.value, pickDay.value, pickHour.value, pickMinute.value)
-  unlockDate.value = d.toISOString().slice(0, 16)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  unlockDate.value = `${pickYear.value}-${pad(pickMonth.value + 1)}-${pad(pickDay.value)}T${pad(pickHour.value)}:${pad(pickMinute.value)}`
   showDatePicker.value = false
 }
 const formattedDate = computed(() => {
   if (!unlockDate.value) return '选择开启时间…'
-  const d = new Date(unlockDate.value)
-  return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+  const [datePart, timePart] = unlockDate.value.split('T')
+  const [y, m, d] = datePart.split('-')
+  const [h, min] = timePart.split(':')
+  return `${y}.${m}.${d} ${h}:${min}`
 })
 
 const countdownText = computed(() => {
@@ -149,10 +167,10 @@ function insertEmoji(emoji: string) {
 /* ═══ Create: Lock settings ═══ */
 const lockMode = ref<'time' | 'event' | 'multisig' | 'random'>('time')
 const lockModes = [
-  { key: 'time' as const, icon: 'clock', name: '时间锁', desc: '到达指定时间后自动可开启' },
-  { key: 'event' as const, icon: 'zap', name: '事件锁', desc: '链上特定事件触发解锁' },
-  { key: 'multisig' as const, icon: 'lock', name: '多签锁', desc: '需要多人共同确认才能开启' },
-  { key: 'random' as const, icon: 'dice', name: '随机锁', desc: '设置时间范围，随机某天开启' },
+  { key: 'time' as const, icon: 'clock', name: '时间锁', desc: '到达指定时间后自动可开启', ready: true },
+  { key: 'event' as const, icon: 'zap', name: '事件锁', desc: '链上特定事件触发解锁', ready: false },
+  { key: 'multisig' as const, icon: 'lock', name: '多签锁', desc: '需要多人共同确认才能开启', ready: false },
+  { key: 'random' as const, icon: 'dice', name: '随机锁', desc: '设置时间范围，随机某天开启', ready: false },
 ]
 const unlockDate = ref('')
 const allowEarlyUnlock = ref(false)
@@ -175,8 +193,23 @@ const durationText = computed(() => {
 
 /* ═══ Create: Chain ═══ */
 const selectedChain = ref('localhost')
-const chains = CHAIN_LIST.map(c => ({
-  key: c.key, name: c.name, fee: c.fee, color: c.color, symbol: c.symbol, type: c.type,
+const chains = computed(() => CHAIN_LIST.map(c => {
+  let walletReady = true
+  let walletHint = ''
+  if (c.type === 'solana') {
+    const hasPhantom = !!(window as Record<string,unknown>).phantom
+    walletReady = hasPhantom
+    walletHint = hasPhantom ? '需要 Phantom 钱包' : '需安装 Phantom 钱包'
+  } else if (c.type === 'sui') {
+    const hasSui = !!(window as Record<string,unknown>).suiWallet
+    walletReady = hasSui
+    walletHint = hasSui ? '需要 Sui Wallet' : '需安装 Sui Wallet'
+  }
+  const deployed = isContractDeployed(c.key)
+  return {
+    key: c.key, name: c.name, fee: c.fee, color: c.color, symbol: c.symbol, type: c.type,
+    walletReady, walletHint, deployed,
+  }
 }))
 
 /* ═══ Create: Locked Assets ═══ */
@@ -206,7 +239,7 @@ const totalLockedUsd = computed(() => {
 const hasLockedAssets = computed(() => lockedTokens.value.length > 0 || lockedNfts.value.length > 0)
 
 const gasEstimate = computed(() => {
-  const ch = chains.find(c => c.key === selectedChain.value)
+  const ch = chains.value.find(c => c.key === selectedChain.value)
   const baseFee = parseFloat(ch?.fee.replace(/[~$]/g, '') || '0.05')
   const tokenFee = lockedTokens.value.length * 0.03
   const nftFee = lockedNfts.value.length * 0.05
@@ -230,11 +263,25 @@ const metaLock = computed(() => {
   const m: Record<string, string> = { time: '时间锁', event: '事件锁', multisig: '多签锁', random: '随机锁' }
   return m[lockMode.value]
 })
-const metaChain = computed(() => chains.find(c => c.key === selectedChain.value)?.name || 'BSC')
+const metaChain = computed(() => chains.value.find(c => c.key === selectedChain.value)?.name || 'BSC')
+
+/* ═══ 钱包-链类型匹配检测 ═══ */
+const selectedChainType = computed(() => chains.value.find(c => c.key === selectedChain.value)?.type || 'evm')
+const walletChainMismatch = computed(() => {
+  if (!wallet.state.value.connected) return ''
+  const wt = wallet.state.value.walletType
+  const ct = selectedChainType.value
+  if (ct === 'evm' && wt !== 'evm') return '当前链需要 EVM 钱包（MetaMask 等），请切换钱包'
+  if (ct === 'solana' && wt !== 'solana') return '当前链需要 Solana 钱包（Phantom），请切换钱包'
+  if (ct === 'sui' && wt !== 'sui') return '当前链需要 Sui Wallet，请切换钱包'
+  return ''
+})
 
 /* ═══ Seal action ═══ */
 const showSealOverlay = ref(false)
 const sealPhase = ref(0)
+const sealBlackholeRef = ref<HTMLElement | null>(null)
+const openAnimRef = ref<HTMLElement | null>(null)
 const txSteps = ref<TxStep[]>([])
 const sealResult = ref<SealResult | null>(null)
 const sealError = ref('')
@@ -272,9 +319,27 @@ function sealCapsuleAnimation() {
 }
 
 async function publishCapsule() {
-  if (!capsuleTitle.value.trim() && !capsuleBody.value.trim()) return
+  if (!capsuleTitle.value.trim() && !capsuleBody.value.trim()) {
+    sealError.value = '请填写胶囊标题或内容'
+    return
+  }
   if (!wallet.state.value.connected) {
     wallet.openModal()
+    return
+  }
+  if (!unlockDate.value) {
+    sealError.value = '请选择开启时间'
+    return
+  }
+  if (walletChainMismatch.value) {
+    sealError.value = walletChainMismatch.value
+    wallet.openModal()
+    return
+  }
+
+  const ch = chains.value.find(c => c.key === selectedChain.value)
+  if (!ch?.deployed) {
+    sealError.value = `${ch?.name || selectedChain.value} 链上的合约尚未部署，请切换到已部署的链（如 Localhost）`
     return
   }
 
@@ -282,8 +347,6 @@ async function publishCapsule() {
   sealError.value = ''
   txSteps.value = []
   sealResult.value = null
-
-  const ch = chains.find(c => c.key === selectedChain.value)
 
   try {
     const result = await fullCreateCapsule({
@@ -334,6 +397,7 @@ async function publishCapsule() {
       txHash: result.txHash,
       chainKey: selectedChain.value,
       contentCID: result.contentCID,
+      allowEarlyUnlock: allowEarlyUnlock.value,
     }
     myCapsules.value.unshift(newCap)
 
@@ -379,6 +443,7 @@ interface Capsule {
   txHash?: string;
   chainKey?: string;
   contentCID?: string;
+  allowEarlyUnlock?: boolean;
 }
 
 const myCapsules = ref<Capsule[]>([
@@ -390,10 +455,10 @@ const myCapsules = ref<Capsule[]>([
   {
     id: 2, type: 'other', title: '妈妈，等我三十岁', chain: 'BNB', chainColor: '#F0B90B', sealDate: '2025.01.01', status: 'sealed', countdown: '剩余 3年 241天',
     lockedTokens: [
-      { symbol: 'USDT', name: 'Tether', amount: '500', icon: '₮', color: '#26A17B', decimals: 18, address: '0x55d3…', balance: '0', usdPrice: 1 },
+      { symbol: 'USDT', name: 'Tether', amount: '500', icon: '₮', color: '#26A17B', decimals: 18, address: '0x55d398326f99059fF775485246999027B3197955', balance: '0', usdPrice: 1 },
       { symbol: 'BNB', name: 'BNB', amount: '1', icon: '◆', color: '#F0B90B', decimals: 18, address: 'native', balance: '0', usdPrice: 312.5 },
     ],
-    totalLockedUsd: 812.5, lockMode: 'time', recipient: '0xAb3F…8cD2',
+    totalLockedUsd: 812.5, lockMode: 'time', recipient: '0xAb3F1c29d84E67A502B8fe33D2C1a9F5e6b08cD2', allowEarlyUnlock: true,
   },
   {
     id: 3, type: 'world', title: '我对 Web3 未来的预言', chain: 'BASE', chainColor: '#0052ff', sealDate: '2024.11.20', status: 'sealed', countdown: '剩余 8年 102天',
@@ -401,14 +466,14 @@ const myCapsules = ref<Capsule[]>([
   },
   {
     id: 4, type: 'self', title: '2020 年的那个冬天', chain: 'ETH', chainColor: '#627EEA', sealDate: '2020.01.01', status: 'opened', openDate: '2025.01.01', orbClass: 'green',
-    lockedNfts: [{ contractAddress: '0xBCf…1a2', tokenId: '1042', name: 'Bored Ape #1042', collection: 'BAYC', image: 'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=200&h=200&fit=crop', standard: 'BEP-721' }],
+    lockedNfts: [{ contractAddress: '0xBCf4783e35a4Ad5273cC07A8ECfA0f6BDe2661a2', tokenId: '1042', name: 'Bored Ape #1042', collection: 'BAYC', image: 'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=200&h=200&fit=crop', standard: 'BEP-721' }],
     lockMode: 'time',
   },
   {
     id: 5, type: 'other', title: '给她的第一封链上情书', chain: 'BNB', chainColor: '#F0B90B', sealDate: '2025.02.14', status: 'sealed', countdown: '剩余 1年 18天', orbClass: 'pink',
-    lockedTokens: [{ symbol: 'BUSD', name: 'Binance USD', amount: '1314', icon: 'B', color: '#F0B90B', decimals: 18, address: '0xe9e7…', balance: '0', usdPrice: 1 }],
-    lockedNfts: [{ contractAddress: '0xA1f…3b4', tokenId: '7721', name: 'CryptoPunk #7721', collection: 'Punks', image: 'https://images.unsplash.com/photo-1635322966219-b75ed372eb01?w=200&h=200&fit=crop', standard: 'BEP-721' }],
-    totalLockedUsd: 1314, lockMode: 'time', recipient: '0x7cFe…2aB1',
+    lockedTokens: [{ symbol: 'BUSD', name: 'Binance USD', amount: '1314', icon: 'B', color: '#F0B90B', decimals: 18, address: '0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56', balance: '0', usdPrice: 1 }],
+    lockedNfts: [{ contractAddress: '0xA1f0d924cBa81e8F1966E46CaF6753b4067513b4', tokenId: '7721', name: 'CryptoPunk #7721', collection: 'Punks', image: 'https://images.unsplash.com/photo-1635322966219-b75ed372eb01?w=200&h=200&fit=crop', standard: 'BEP-721' }],
+    totalLockedUsd: 1314, lockMode: 'time', recipient: '0x7cFe4a91D83E07b52C6d0a889B4012e5F7dA2aB1',
   },
   {
     id: 6, type: 'self', title: '人生第一个百万目标', chain: 'BNB', chainColor: '#F0B90B', sealDate: '2025.08.15', status: 'sealed', countdown: '剩余 4年 88天', orbClass: 'gold',
@@ -431,7 +496,12 @@ const readyCount = computed(() => myCapsules.value.filter(c => c.status === 'rea
 /* ═══ Open Capsule ═══ */
 const showOpenOverlay = ref(false)
 const openPhase = ref(0)
-const openedCapsule = ref<{ title: string; body: string; type: string; chain: string; sealDate: string; attachments: { url: string; type: string }[] } | null>(null)
+const openedCapsule = ref<{
+  title: string; body: string; type: string; chain: string; sealDate: string;
+  attachments: { url: string; type: string }[];
+  lockedTokens?: LockedToken[]; lockedNfts?: LockedNft[];
+  txHash?: string; chainKey?: string;
+} | null>(null)
 const showOpenedContent = ref(false)
 
 const openTtsTexts: Record<number, string> = {
@@ -476,7 +546,11 @@ async function openCapsuleFromCard(capsule: Capsule) {
         attachments: [
           { url: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=600', type: 'image' },
           { url: 'https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=600', type: 'image' }
-        ]
+        ],
+        lockedTokens: capsule.lockedTokens,
+        lockedNfts: capsule.lockedNfts,
+        txHash: capsule.txHash,
+        chainKey: capsule.chainKey,
       }
       showOpenedContent.value = true
       window.speechSynthesis?.cancel()
@@ -488,10 +562,56 @@ async function openCapsuleFromCard(capsule: Capsule) {
       type: capsule.type === 'self' ? '自言' : capsule.type === 'other' ? '他言' : '世言',
       chain: capsule.chain,
       sealDate: capsule.sealDate,
-      attachments: []
+      attachments: [],
+      lockedTokens: capsule.lockedTokens,
+      lockedNfts: capsule.lockedNfts,
+      txHash: capsule.txHash,
+      chainKey: capsule.chainKey,
     }
     showOpenedContent.value = true
   }
+}
+
+async function earlyOpenFromCard(capsule: Capsule) {
+  if (capsule.status !== 'sealed' || !capsule.allowEarlyUnlock) return
+  showOpenOverlay.value = true
+  openPhase.value = 1
+  speakPhase(1, openTtsTexts)
+
+  if (capsule.chainKey) {
+    try {
+      await earlyOpenCapsuleOnChain(capsule.chainKey, capsule.id, (step) => {
+        if (step.status === 'done') openPhase.value = 3
+      })
+    } catch (err) {
+      console.warn('[StarSealed] Early open on-chain failed:', err)
+    }
+  }
+
+  setTimeout(() => { openPhase.value = 2; speakPhase(2, openTtsTexts) }, 1500)
+  setTimeout(() => { openPhase.value = 3; speakPhase(3, openTtsTexts) }, 3500)
+  setTimeout(() => { openPhase.value = 4; speakPhase(4, openTtsTexts) }, 5000)
+  setTimeout(() => {
+    showOpenOverlay.value = false
+    openPhase.value = 0
+    capsule.status = 'opened'
+    capsule.openDate = new Date().toISOString().slice(0, 10).replace(/-/g, '.')
+    capsule.countdown = undefined
+    openedCapsule.value = {
+      title: capsule.title,
+      body: '此胶囊通过提前开启解封（10% 惩罚金已扣除）。\n\n—— 来自过去的星封 ✨',
+      type: capsule.type === 'self' ? '自言' : capsule.type === 'other' ? '他言' : '世言',
+      chain: capsule.chain,
+      sealDate: capsule.sealDate,
+      attachments: [],
+      lockedTokens: capsule.lockedTokens,
+      lockedNfts: capsule.lockedNfts,
+      txHash: capsule.txHash,
+      chainKey: capsule.chainKey,
+    }
+    showOpenedContent.value = true
+    window.speechSynthesis?.cancel()
+  }, 6500)
 }
 
 function closeOpenedContent() {
@@ -720,12 +840,13 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
                     v-for="lm in lockModes"
                     :key="lm.key"
                     class="lock-mode"
-                    :class="{ selected: lockMode === lm.key }"
-                    @click="lockMode = lm.key"
+                    :class="{ selected: lockMode === lm.key, 'lock-mode-disabled': !lm.ready }"
+                    @click="lm.ready && (lockMode = lm.key)"
                   >
                     <div class="lm-head">
-                      <Icon :name="lm.icon" :size="16" color="var(--star-blue)" />
+                      <Icon :name="lm.icon" :size="16" :color="lm.ready ? 'var(--star-blue)' : '#555'" />
                       <div class="lm-name">{{ lm.name }}</div>
+                      <span v-if="!lm.ready" class="lm-coming">即将推出</span>
                     </div>
                     <div class="lm-desc">{{ lm.desc }}</div>
                   </div>
@@ -740,34 +861,55 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
                   </div>
                   <Transition name="ss-fade">
                     <div v-if="showDatePicker" class="dp-panel">
-                      <div class="dp-backdrop" @click="showDatePicker = false"></div>
+                      <div class="dp-backdrop" @click="showDatePicker = false; showYearMonthPicker = false"></div>
                       <div class="dp-content">
                         <div class="dp-header">
                           <button class="dp-nav" @click="prevMonth">‹</button>
-                          <span class="dp-month">{{ pickYear }} 年 {{ pickMonth + 1 }} 月</span>
+                          <span class="dp-month dp-ym-trigger" @click="showYearMonthPicker = !showYearMonthPicker">
+                            {{ pickYear }} 年 {{ pickMonth + 1 }} 月
+                            <span class="dp-ym-arrow">{{ showYearMonthPicker ? '▲' : '▼' }}</span>
+                          </span>
                           <button class="dp-nav" @click="nextMonth">›</button>
                         </div>
-                        <div class="dp-weekdays">
-                          <span v-for="w in ['一','二','三','四','五','六','日']" :key="w">{{ w }}</span>
-                        </div>
-                        <div class="dp-days">
-                          <span v-for="_ in firstDayOfWeek - 1" :key="'e'+_" class="dp-day empty"></span>
-                          <button v-for="d in daysInMonth" :key="d" class="dp-day" :class="{ active: d === pickDay }" @click="pickDay = d">{{ d }}</button>
-                        </div>
-                        <div class="dp-time">
-                          <div class="dp-time-group">
-                            <button class="dp-t-btn" @click="pickHour = (pickHour + 1) % 24">▲</button>
-                            <span class="dp-t-val">{{ String(pickHour).padStart(2,'0') }}</span>
-                            <button class="dp-t-btn" @click="pickHour = (pickHour + 23) % 24">▼</button>
+                        <Transition name="ss-fade">
+                          <div v-if="showYearMonthPicker" class="dp-ym-panel">
+                            <div class="dp-ym-section">
+                              <div class="dp-ym-label">年份</div>
+                              <div class="dp-ym-grid dp-year-grid">
+                                <button v-for="y in yearRange" :key="y" class="dp-ym-btn" :class="{ active: y === pickYear }" @click="selectYearMonth(y, pickMonth)">{{ y }}</button>
+                              </div>
+                            </div>
+                            <div class="dp-ym-section">
+                              <div class="dp-ym-label">月份</div>
+                              <div class="dp-ym-grid dp-month-grid">
+                                <button v-for="m in 12" :key="m" class="dp-ym-btn" :class="{ active: m - 1 === pickMonth }" @click="selectYearMonth(pickYear, m - 1)">{{ m }}月</button>
+                              </div>
+                            </div>
                           </div>
-                          <span class="dp-t-sep">:</span>
-                          <div class="dp-time-group">
-                            <button class="dp-t-btn" @click="pickMinute = (pickMinute + 1) % 60">▲</button>
-                            <span class="dp-t-val">{{ String(pickMinute).padStart(2,'0') }}</span>
-                            <button class="dp-t-btn" @click="pickMinute = (pickMinute + 59) % 60">▼</button>
+                        </Transition>
+                        <div v-if="!showYearMonthPicker">
+                          <div class="dp-weekdays">
+                            <span v-for="w in ['一','二','三','四','五','六','日']" :key="w">{{ w }}</span>
                           </div>
+                          <div class="dp-days">
+                            <span v-for="_ in firstDayOfWeek - 1" :key="'e'+_" class="dp-day empty"></span>
+                            <button v-for="d in daysInMonth" :key="d" class="dp-day" :class="{ active: d === pickDay }" @click="pickDay = d">{{ d }}</button>
+                          </div>
+                          <div class="dp-time">
+                            <div class="dp-time-group">
+                              <button class="dp-t-btn" @click="pickHour = (pickHour + 1) % 24">▲</button>
+                              <span class="dp-t-val">{{ String(pickHour).padStart(2,'0') }}</span>
+                              <button class="dp-t-btn" @click="pickHour = (pickHour + 23) % 24">▼</button>
+                            </div>
+                            <span class="dp-t-sep">:</span>
+                            <div class="dp-time-group">
+                              <button class="dp-t-btn" @click="pickMinute = (pickMinute + 1) % 60">▲</button>
+                              <span class="dp-t-val">{{ String(pickMinute).padStart(2,'0') }}</span>
+                              <button class="dp-t-btn" @click="pickMinute = (pickMinute + 59) % 60">▼</button>
+                            </div>
+                          </div>
+                          <button class="dp-confirm" @click="confirmDate">确认时间</button>
                         </div>
-                        <button class="dp-confirm" @click="confirmDate">确认时间</button>
                       </div>
                     </div>
                   </Transition>
@@ -799,15 +941,30 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
                       v-for="ch in chains"
                       :key="ch.key"
                       class="chain-item"
-                      :class="{ selected: selectedChain === ch.key }"
-                      :style="{ '--chain-color': ch.color }"
-                      @click="selectedChain = ch.key"
+                      :class="{
+                        selected: selectedChain === ch.key,
+                        disabled: !ch.deployed || (ch.type !== 'evm' && !ch.walletReady)
+                      }"
+                      :style="{ '--chain-color': ch.deployed && (ch.walletReady || ch.type === 'evm') ? ch.color : '#555' }"
+                      @click="ch.deployed && (ch.type === 'evm' || ch.walletReady) && (selectedChain = ch.key)"
                     >
-                      <Icon name="hexagon" :size="22" :color="ch.color" />
+                      <Icon name="hexagon" :size="22" :color="ch.deployed && (ch.walletReady || ch.type === 'evm') ? ch.color : '#555'" />
                       <div class="chain-name">{{ ch.name }}</div>
-                      <div class="chain-fee">{{ ch.fee }}</div>
+                      <template v-if="!ch.deployed">
+                        <div class="chain-fee chain-no-deploy">合约未部署</div>
+                      </template>
+                      <template v-else-if="ch.type === 'evm' || ch.walletReady">
+                        <div class="chain-fee">{{ ch.fee }}</div>
+                      </template>
+                      <template v-else>
+                        <div class="chain-fee chain-wallet-hint">{{ ch.walletHint }}</div>
+                      </template>
                       <div class="chain-type-badge" v-if="ch.type !== 'evm'">{{ ch.type.toUpperCase() }}</div>
                     </div>
+                  </div>
+                  <div v-if="walletChainMismatch" class="chain-wallet-warn">
+                    <span>⚠️ {{ walletChainMismatch }}</span>
+                    <button class="btn-switch-wallet" @click="wallet.openModal()">切换钱包</button>
                   </div>
                 </div>
 
@@ -1042,9 +1199,9 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 
             <div class="tip-card">
               <div class="tip-title"><Icon name="sparkles" :size="12" color="var(--star-gold)" /> 关于时代印记</div>
-              <div class="tip-item">封印时区块高度将作为时间戳</div>
-              <div class="tip-item">自动记录当时代币价格</div>
-              <div class="tip-item">开启时生成纪念 NFT</div>
+              <div class="tip-item"><span class="tip-dot" style="background:#60a5fa;box-shadow:0 0 6px #60a5fa88"></span>封印时区块高度将作为时间戳</div>
+              <div class="tip-item"><span class="tip-dot" style="background:#a78bfa;box-shadow:0 0 6px #a78bfa88"></span>自动记录当时代币价格</div>
+              <div class="tip-item"><span class="tip-dot" style="background:#fbbf24;box-shadow:0 0 6px #fbbf2488"></span>开启时生成纪念 NFT</div>
             </div>
           </div>
         </div>
@@ -1123,6 +1280,13 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
               >
                 Tx: {{ cap.txHash.slice(0, 6) }}...{{ cap.txHash.slice(-4) }} ↗
               </a>
+              <button
+                v-if="cap.status === 'sealed' && cap.allowEarlyUnlock"
+                class="cc-early-open-btn"
+                @click.stop="earlyOpenFromCard(cap)"
+              >
+                <Icon name="zap" :size="13" /> 提前开启（10%惩罚）
+              </button>
             </div>
           </div>
         </div>
@@ -1184,33 +1348,23 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
             ></div>
           </div>
 
-          <!-- 黑洞主体 -->
-          <div class="so-blackhole" :class="'phase-' + sealPhase">
-            <!-- 外层辉光 -->
+          <!-- Canvas 粒子漩涡（底层） -->
+          <BlackholeCanvas :phase="sealPhase" mode="seal" :centerEl="sealBlackholeRef" />
+
+          <!-- 黑洞主体（原 CSS） -->
+          <div ref="sealBlackholeRef" class="so-blackhole" :class="'phase-' + sealPhase">
             <div class="so-outer-glow"></div>
-            <!-- 吸积盘 -->
             <div class="so-accretion"></div>
             <div class="so-accretion-inner"></div>
-            <!-- 光子环 -->
             <div class="so-photon"></div>
-            <!-- 引力透镜扭曲环 -->
             <div class="so-lens-ring r1"></div>
             <div class="so-lens-ring r2"></div>
             <div class="so-lens-ring r3"></div>
-            <!-- 轨道粒子 -->
-            <div class="so-orbit-p" v-for="j in 8" :key="j"
-              :style="{
-                animationDuration: (4 + j * 0.8) + 's',
-                animationDirection: j % 2 === 0 ? 'reverse' : 'normal',
-                animationDelay: (j * 0.3) + 's',
-                '--p-color': ['#fbbf24','#60a5fa','#a78bfa','#f472b6','#34d399','#22d3ee','#f59e0b','#fff'][j-1],
-                '--p-size': (2 + Math.random() * 2) + 'px',
-                '--p-dist': (120 + j * 12) + 'px'
-              }"
-            ></div>
-            <!-- 被吸入的胶囊球 -->
-            <div class="so-capsule-orb" :class="{ sucked: sealPhase >= 2 }"></div>
-            <!-- 黑洞核心 -->
+            <div class="so-capsule-orb" :class="{ sucked: sealPhase >= 2 }">
+              <div class="so-cap-body"></div>
+              <div class="so-cap-band"></div>
+              <div class="so-cap-star">★</div>
+            </div>
             <div class="so-void" :class="{ expanded: sealPhase >= 3 }"></div>
           </div>
 
@@ -1235,14 +1389,18 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
               </div>
             </Transition>
             <!-- 进度条 -->
-            <div class="so-progress">
-              <div class="so-progress-bar" :style="{ width: sealPhase * 25 + '%' }"></div>
-            </div>
-            <div class="so-progress-steps">
-              <span :class="{ active: sealPhase >= 1 }">连接</span>
-              <span :class="{ active: sealPhase >= 2 }">加密</span>
-              <span :class="{ active: sealPhase >= 3 }">上链</span>
-              <span :class="{ active: sealPhase >= 4 }">完成</span>
+            <div class="so-progress-wrap">
+              <div class="so-progress-track">
+                <div class="so-progress-fill" :style="{ width: sealPhase * 25 + '%' }"></div>
+                <div class="so-progress-dot" :style="{ left: sealPhase * 25 + '%' }"></div>
+              </div>
+              <div class="so-progress-nodes">
+                <div v-for="(label, idx) in ['连接', '加密', '上链', '完成']" :key="label"
+                  class="so-pn" :class="{ active: sealPhase >= idx + 1, current: sealPhase === idx + 1 }">
+                  <div class="so-pn-dot"></div>
+                  <span class="so-pn-label">{{ label }}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1266,7 +1424,11 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
             ></div>
           </div>
 
-          <div class="open-anim" :class="'phase-' + openPhase">
+          <!-- Canvas 粒子漩涡（底层） -->
+          <BlackholeCanvas :phase="openPhase" mode="open" :centerEl="openAnimRef" />
+
+          <!-- 开启动画主体 -->
+          <div ref="openAnimRef" class="open-anim" :class="'phase-' + openPhase">
             <div class="oa-glow"></div>
             <div class="oa-ring r1"></div>
             <div class="oa-ring r2"></div>
@@ -1308,14 +1470,18 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
                 <div class="so-sub">来自过去的记忆，此刻属于你…</div>
               </div>
             </Transition>
-            <div class="so-progress">
-              <div class="so-progress-bar" :style="{ width: openPhase * 25 + '%' }"></div>
-            </div>
-            <div class="so-progress-steps">
-              <span :class="{ active: openPhase >= 1 }">唤醒</span>
-              <span :class="{ active: openPhase >= 2 }">解密</span>
-              <span :class="{ active: openPhase >= 3 }">破碎</span>
-              <span :class="{ active: openPhase >= 4 }">呈现</span>
+            <div class="so-progress-wrap">
+              <div class="so-progress-track">
+                <div class="so-progress-fill" :style="{ width: openPhase * 25 + '%' }"></div>
+                <div class="so-progress-dot" :style="{ left: openPhase * 25 + '%' }"></div>
+              </div>
+              <div class="so-progress-nodes">
+                <div v-for="(label, idx) in ['唤醒', '解密', '破碎', '呈现']" :key="label"
+                  class="so-pn" :class="{ active: openPhase >= idx + 1, current: openPhase === idx + 1 }">
+                  <div class="so-pn-dot"></div>
+                  <span class="so-pn-label">{{ label }}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1343,6 +1509,28 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
                     <img v-if="att.type === 'image'" :src="att.url" class="oc-att-img" />
                     <video v-else-if="att.type === 'video'" :src="att.url" controls class="oc-att-img" />
                   </div>
+                </div>
+              </div>
+            </div>
+            <div v-if="openedCapsule.lockedTokens?.length || openedCapsule.lockedNfts?.length" class="oc-assets">
+              <div class="oc-assets-title">🔓 已解锁的链上资产</div>
+              <div class="oc-assets-hint">以下资产已通过智能合约释放，可在你的钱包中查看</div>
+              <div class="oc-assets-list">
+                <div v-for="tk in (openedCapsule.lockedTokens || [])" :key="tk.symbol" class="oc-asset-item token">
+                  <span class="oc-asset-icon">🪙</span>
+                  <span class="oc-asset-info">
+                    <span class="oc-asset-amount">{{ tk.amount }} {{ tk.symbol }}</span>
+                    <span class="oc-asset-usd">≈ ${{ (parseFloat(tk.amount) * tk.usdPrice).toFixed(2) }}</span>
+                  </span>
+                  <span class="oc-asset-status">✓ 已释放</span>
+                </div>
+                <div v-for="nft in (openedCapsule.lockedNfts || [])" :key="`${nft.contractAddress}:${nft.tokenId}`" class="oc-asset-item nft">
+                  <span class="oc-asset-icon">✦</span>
+                  <span class="oc-asset-info">
+                    <span class="oc-asset-amount">{{ nft.name }}</span>
+                    <span class="oc-asset-usd">{{ nft.collection }} #{{ nft.tokenId }}</span>
+                  </span>
+                  <span class="oc-asset-status">✓ 已释放</span>
                 </div>
               </div>
             </div>
@@ -1508,8 +1696,8 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 /* Section eye */
 .section-eye {
   font-family: var(--font-mono);
-  font-size: 10px; letter-spacing: 2.5px;
-  color: var(--text-muted); text-transform: uppercase;
+  font-size: 11px; letter-spacing: 2px;
+  color: rgba(255,255,255,0.6); text-transform: uppercase;
   margin-bottom: 12px;
   display: flex; align-items: center; gap: 8px;
 }
@@ -1642,9 +1830,9 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 /* Assets — Connect Hint */
 .asset-connect-hint {
   display: flex; align-items: center; gap: 8px; padding: 14px 16px;
-  background: rgba(99,179,237,0.04); border: 1px dashed rgba(99,179,237,0.2);
+  background: rgba(99,179,237,0.06); border: 1px dashed rgba(99,179,237,0.3);
   border-radius: var(--ss-r-sm); cursor: pointer; transition: all 0.2s;
-  font-size: 12px; color: var(--text-muted);
+  font-size: 12px; color: rgba(255,255,255,0.55);
 }
 .asset-connect-hint:hover { border-color: rgba(99,179,237,0.4); background: rgba(99,179,237,0.06); }
 .connect-link { margin-left: auto; color: var(--star-blue); font-weight: 600; }
@@ -1723,9 +1911,18 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 }
 .lock-mode:hover { border-color: var(--ss-border-bright); }
 .lock-mode.selected { border-color: var(--star-blue); background: rgba(99,179,237,0.07); }
+.lock-mode-disabled {
+  opacity: 0.4; cursor: not-allowed !important; filter: grayscale(0.5);
+}
+.lock-mode-disabled:hover { border-color: var(--ss-border); }
 .lm-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
 .lm-name { font-size: 13px; font-weight: 600; }
-.lm-desc { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
+.lm-coming {
+  font-size: 9px; font-weight: 600; color: #f59e0b; margin-left: auto;
+  padding: 1px 6px; border-radius: 4px; background: rgba(245,158,11,0.12);
+  letter-spacing: 0.5px;
+}
+.lm-desc { font-size: 11px; color: rgba(255,255,255,0.5); line-height: 1.4; }
 
 /* Time Visual — Horizontal in Sidebar */
 .tv-horizontal {
@@ -2175,8 +2372,8 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
   font-size: 11px; color: var(--star-gold); margin-bottom: 8px;
   display: flex; align-items: center; gap: 5px;
 }
-.tip-item { font-size: 11px; color: var(--text-muted); line-height: 1.7; padding-left: 12px; position: relative; }
-.tip-item::before { content: '•'; position: absolute; left: 0; }
+.tip-item { font-size: 12px; color: rgba(255,255,255,0.6); line-height: 1.9; display: flex; align-items: center; gap: 8px; }
+.tip-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
 
 /* ═══ MY CAPSULES ═══ */
 .mine-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }
@@ -2283,6 +2480,21 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 }
 .cc-tx-link:hover { opacity: 1; text-decoration: underline; }
 
+.cc-early-open-btn {
+  display: flex; align-items: center; gap: 5px; justify-content: center;
+  margin-top: 10px; padding: 7px 14px; width: 100%;
+  border: 1px solid rgba(251,191,36,0.35); border-radius: 8px;
+  background: linear-gradient(135deg, rgba(251,191,36,0.08), rgba(245,158,11,0.12));
+  color: #fbbf24; font-size: 11px; font-weight: 600; cursor: pointer;
+  transition: all 0.25s ease; letter-spacing: 0.5px;
+}
+.cc-early-open-btn:hover {
+  background: linear-gradient(135deg, rgba(251,191,36,0.18), rgba(245,158,11,0.25));
+  box-shadow: 0 0 16px rgba(251,191,36,0.2);
+  transform: translateY(-1px);
+}
+.cc-early-open-btn:active { transform: translateY(0); }
+
 /* ═══ TX Progress ═══ */
 .tx-progress {
   margin: 16px 0; padding: 14px; border-radius: 12px;
@@ -2343,6 +2555,31 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
   background: rgba(99,179,237,0.15); color: var(--star-blue);
   text-transform: uppercase;
 }
+.chain-item.disabled {
+  opacity: 0.4; cursor: not-allowed; pointer-events: auto;
+  filter: grayscale(0.6);
+}
+.chain-item.disabled:hover {
+  border-color: rgba(255,255,255,0.06); transform: none; box-shadow: none;
+}
+.chain-wallet-hint {
+  color: #f59e0b !important; font-size: 9px !important;
+}
+.chain-no-deploy {
+  color: #ef4444 !important; font-size: 9px !important; opacity: 0.8;
+}
+.chain-wallet-warn {
+  margin-top: 10px; padding: 10px 14px; border-radius: 8px;
+  background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3);
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  font-size: 12px; color: #f59e0b;
+}
+.btn-switch-wallet {
+  padding: 4px 12px; border-radius: 6px; border: 1px solid rgba(245,158,11,0.4);
+  background: rgba(245,158,11,0.15); color: #f59e0b;
+  font-size: 11px; cursor: pointer; white-space: nowrap; transition: all 0.2s;
+}
+.btn-switch-wallet:hover { background: rgba(245,158,11,0.25); }
 
 /* ═══ RECEIVED ═══ */
 .received-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
@@ -2402,85 +2639,49 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 }
 @keyframes soTwinkle { from { opacity: 0.05; } to { opacity: 0.7; } }
 
-/* 黑洞容器 */
+/* ═══ 黑洞核心 CSS ═══ */
 .so-blackhole {
   width: 340px; height: 340px;
-  position: relative;
+  position: relative; z-index: 2;
   margin-bottom: 40px;
   transition: transform 1s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.so-blackhole.phase-3, .so-blackhole.phase-4 {
-  transform: scale(1.15);
-}
+.so-blackhole.phase-3, .so-blackhole.phase-4 { transform: scale(1.15); }
 
-/* 外层辉光 */
 .so-outer-glow {
-  position: absolute; inset: -60px;
-  border-radius: 50%;
-  background: radial-gradient(circle,
-    rgba(99,179,237,0.06) 0%,
-    rgba(183,148,244,0.04) 30%,
-    transparent 70%
-  );
+  position: absolute; inset: -60px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(99,179,237,0.06) 0%, rgba(183,148,244,0.04) 30%, transparent 70%);
   animation: soGlowPulse 3s ease-in-out infinite;
 }
 @keyframes soGlowPulse { 0%,100% { opacity: 0.4; transform: scale(1); } 50% { opacity: 1; transform: scale(1.08); } }
 
-/* 吸积盘 — 主漩涡 */
 .so-accretion {
-  position: absolute; inset: -10px;
-  border-radius: 50%;
-  background: conic-gradient(
-    from 0deg,
-    rgba(251,176,64,0.0) 0deg,
-    rgba(251,176,64,0.5) 30deg,
-    rgba(251,113,94,0.6) 60deg,
-    rgba(246,135,179,0.5) 90deg,
-    rgba(251,176,64,0.3) 120deg,
-    rgba(99,179,237,0.4) 150deg,
-    rgba(183,148,244,0.6) 200deg,
-    rgba(118,228,247,0.4) 240deg,
-    rgba(99,179,237,0.3) 280deg,
-    rgba(251,176,64,0.2) 320deg,
-    rgba(251,176,64,0.0) 360deg
-  );
-  animation: soDiskSpin 6s linear infinite;
-  filter: blur(10px);
-  opacity: 0.8;
+  position: absolute; inset: -10px; border-radius: 50%;
+  background: conic-gradient(from 0deg,
+    rgba(251,176,64,0.0) 0deg, rgba(251,176,64,0.5) 30deg, rgba(251,113,94,0.6) 60deg,
+    rgba(246,135,179,0.5) 90deg, rgba(251,176,64,0.3) 120deg, rgba(99,179,237,0.4) 150deg,
+    rgba(183,148,244,0.6) 200deg, rgba(118,228,247,0.4) 240deg, rgba(99,179,237,0.3) 280deg,
+    rgba(251,176,64,0.2) 320deg, rgba(251,176,64,0.0) 360deg);
+  animation: soDiskSpin 6s linear infinite; filter: blur(10px); opacity: 0.8;
 }
 .so-accretion-inner {
-  position: absolute; inset: 20px;
-  border-radius: 50%;
-  background: conic-gradient(
-    from 180deg,
-    rgba(99,179,237,0.0) 0deg,
-    rgba(99,179,237,0.4) 60deg,
-    rgba(183,148,244,0.5) 120deg,
-    rgba(251,176,64,0.3) 180deg,
-    rgba(246,135,179,0.4) 240deg,
-    rgba(118,228,247,0.3) 300deg,
-    rgba(99,179,237,0.0) 360deg
-  );
-  animation: soDiskSpin 4s linear infinite reverse;
-  filter: blur(6px);
-  opacity: 0.6;
+  position: absolute; inset: 20px; border-radius: 50%;
+  background: conic-gradient(from 180deg,
+    rgba(99,179,237,0.0) 0deg, rgba(99,179,237,0.4) 60deg, rgba(183,148,244,0.5) 120deg,
+    rgba(251,176,64,0.3) 180deg, rgba(246,135,179,0.4) 240deg, rgba(118,228,247,0.3) 300deg,
+    rgba(99,179,237,0.0) 360deg);
+  animation: soDiskSpin 4s linear infinite reverse; filter: blur(6px); opacity: 0.6;
 }
 @keyframes soDiskSpin { to { transform: rotate(360deg); } }
 
-/* 光子环 */
 .so-photon {
-  position: absolute; inset: 50px;
-  border-radius: 50%;
+  position: absolute; inset: 50px; border-radius: 50%;
   border: 2.5px solid rgba(251,176,64,0.6);
-  box-shadow:
-    0 0 30px rgba(251,176,64,0.4),
-    0 0 60px rgba(251,176,64,0.15),
-    inset 0 0 30px rgba(251,176,64,0.15);
+  box-shadow: 0 0 30px rgba(251,176,64,0.4), 0 0 60px rgba(251,176,64,0.15), inset 0 0 30px rgba(251,176,64,0.15);
   animation: soPhotonSpin 3.5s linear infinite;
 }
 @keyframes soPhotonSpin { to { transform: rotate(-360deg); } }
 
-/* 引力透镜环 */
 .so-lens-ring {
   position: absolute; border-radius: 50%;
   border: 1px solid rgba(99,179,237,0.15);
@@ -2494,63 +2695,122 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
   50% { transform: scale(1.06) rotate(15deg); opacity: 0.8; }
 }
 
-/* 轨道粒子 */
-.so-orbit-p {
-  position: absolute;
-  width: var(--p-size, 3px); height: var(--p-size, 3px);
-  border-radius: 50%;
-  background: var(--p-color, white);
-  box-shadow: 0 0 6px var(--p-color, white);
-  left: 50%; top: 50%;
-  margin-left: calc(var(--p-size, 3px) / -2);
-  margin-top: calc(0px - var(--p-dist, 130px));
-  transform-origin: calc(var(--p-size, 3px) / 2) var(--p-dist, 130px);
-  animation: soOrbit 5s linear infinite;
-}
-@keyframes soOrbit { to { transform: rotate(360deg); } }
-
-/* 被吸入的胶囊球 */
 .so-capsule-orb {
-  position: absolute;
-  left: 50%; top: 50%;
-  width: 40px; height: 40px;
-  margin: -20px 0 0 -20px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #93c5fd, #1d4ed8);
-  box-shadow: 0 0 40px rgba(99,179,237,0.6), 0 0 80px rgba(99,179,237,0.3);
+  position: absolute; left: 50%; top: 50%;
+  width: 44px; height: 76px; margin: -38px 0 0 -22px;
   z-index: 10;
   transition: all 1.5s cubic-bezier(0.55, 0, 0.1, 1);
   animation: soCapsuleFloat 2s ease-in-out infinite;
 }
+.so-cap-body {
+  width: 100%; height: 100%; border-radius: 22px;
+  background: linear-gradient(180deg, #b0d4ff 0%, #60a5fa 15%, #2563eb 35%, #1e40af 50%, #1d4ed8 65%, #60a5fa 85%, #93c5fd 100%);
+  box-shadow: 0 0 30px rgba(99,179,237,0.6), 0 0 60px rgba(99,179,237,0.25);
+  border: 1px solid rgba(148,196,255,0.25);
+}
+.so-cap-band {
+  position: absolute; left: -2px; right: -2px; top: 50%; transform: translateY(-50%);
+  height: 5px; border-radius: 3px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), rgba(104,211,145,0.9), rgba(255,255,255,0.6), transparent);
+}
+.so-cap-star {
+  position: absolute; left: 50%; bottom: 16%; transform: translateX(-50%);
+  font-size: 10px; color: rgba(255,255,255,0.5);
+}
 .so-capsule-orb.sucked {
-  width: 0; height: 0; margin: 0 0 0 0;
-  opacity: 0;
+  width: 0; height: 0; margin: 0 0 0 0; opacity: 0;
   box-shadow: 0 0 100px rgba(99,179,237,0.9), 0 0 200px rgba(183,148,244,0.4);
   animation: none;
 }
+.so-capsule-orb.sucked .so-cap-body,
+.so-capsule-orb.sucked .so-cap-band,
+.so-capsule-orb.sucked .so-cap-star { opacity: 0; }
 @keyframes soCapsuleFloat {
-  0%,100% { transform: translate(0, -60px) scale(1); }
-  50% { transform: translate(0, -55px) scale(1.05); }
+  0%,100% { transform: translate(0, -70px) scale(1); }
+  50% { transform: translate(0, -63px) scale(1.04); }
 }
 
-/* 黑洞核心 */
 .so-void {
-  position: absolute; inset: 95px;
-  border-radius: 50%;
+  position: absolute; inset: 95px; border-radius: 50%;
   background: radial-gradient(circle, #000000 50%, #030712 80%, rgba(99,179,237,0.03) 100%);
-  box-shadow:
-    0 0 60px rgba(0,0,0,0.9),
-    0 0 120px rgba(0,0,0,0.6),
-    inset 0 0 40px rgba(99,179,237,0.04);
-  z-index: 5;
-  transition: all 1s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 60px rgba(0,0,0,0.9), 0 0 120px rgba(0,0,0,0.6), inset 0 0 40px rgba(99,179,237,0.04);
+  z-index: 5; transition: all 1s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .so-void.expanded {
   inset: 85px;
-  box-shadow:
-    0 0 80px rgba(0,0,0,0.95),
-    0 0 160px rgba(0,0,0,0.7),
-    inset 0 0 60px rgba(104,211,145,0.06);
+  box-shadow: 0 0 80px rgba(0,0,0,0.95), 0 0 160px rgba(0,0,0,0.7), inset 0 0 60px rgba(104,211,145,0.06);
+}
+
+/* ═══ Open Animation CSS ═══ */
+.open-anim {
+  width: 280px; height: 280px; position: relative; margin-bottom: 40px; z-index: 2;
+  transition: all 1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.open-anim.phase-3, .open-anim.phase-4 { transform: scale(0.9); }
+.oa-glow {
+  position: absolute; inset: -50px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(104,211,145,0.08) 0%, rgba(99,179,237,0.04) 40%, transparent 70%);
+  animation: soGlowPulse 3s ease-in-out infinite;
+}
+.oa-ring {
+  position: absolute; border-radius: 50%; border: 1px solid rgba(104,211,145,0.2);
+  animation: oaRingExpand 3s ease-in-out infinite;
+}
+.oa-ring.r1 { inset: 20px; animation-delay: 0s; }
+.oa-ring.r2 { inset: 40px; animation-delay: 0.5s; border-color: rgba(99,179,237,0.15); }
+.oa-ring.r3 { inset: 60px; animation-delay: 1s; border-color: rgba(183,148,244,0.12); }
+@keyframes oaRingExpand {
+  0%,100% { transform: scale(1); opacity: 0.3; }
+  50% { transform: scale(1.08); opacity: 0.7; }
+}
+.oa-capsule {
+  position: absolute; left: 50%; top: 50%;
+  width: 52px; height: 90px; margin: -45px 0 0 -26px;
+  transition: all 1s cubic-bezier(0.4, 0, 0.2, 1); z-index: 5;
+}
+.oa-capsule.cracking { animation: oaCrack 1.5s ease-in-out; }
+.oa-capsule.burst { animation: oaBurst 0.8s ease forwards; }
+@keyframes oaCrack {
+  0%,100% { transform: rotate(0deg); }
+  15% { transform: rotate(-3deg); } 30% { transform: rotate(3deg); }
+  45% { transform: rotate(-5deg); } 60% { transform: rotate(5deg); }
+  75% { transform: rotate(-2deg); }
+}
+@keyframes oaBurst {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.5); opacity: 0.8; }
+  100% { transform: scale(0); opacity: 0; }
+}
+.oa-cap-body {
+  width: 100%; height: 100%; border-radius: 26px;
+  background: linear-gradient(180deg, #b0d4ff 0%, #60a5fa 15%, #2563eb 35%, #1e40af 50%, #1d4ed8 65%, #60a5fa 85%, #93c5fd 100%);
+  box-shadow: 0 0 30px rgba(99,179,237,0.5), 0 0 60px rgba(99,179,237,0.2);
+  border: 1px solid rgba(148,196,255,0.25);
+}
+.oa-cap-band {
+  position: absolute; left: -2px; right: -2px; top: 50%; transform: translateY(-50%);
+  height: 6px; border-radius: 3px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), rgba(104,211,145,0.9), rgba(255,255,255,0.6), transparent);
+}
+.oa-crack {
+  position: absolute; left: 50%; top: 30%; width: 2px; height: 40%;
+  background: linear-gradient(180deg, transparent, rgba(104,211,145,0.8), rgba(251,176,64,0.6), transparent);
+  transform: translateX(-50%);
+  animation: oaCrackGlow 0.5s ease-in-out infinite alternate;
+  box-shadow: 0 0 10px rgba(104,211,145,0.5);
+}
+@keyframes oaCrackGlow { from { opacity: 0.5; } to { opacity: 1; } }
+.oa-burst-particles { position: absolute; inset: 0; z-index: 10; }
+.oa-bp {
+  position: absolute; left: 50%; top: 50%;
+  width: var(--bp-size, 4px); height: var(--bp-size, 4px);
+  border-radius: 50%; background: var(--bp-color, white);
+  box-shadow: 0 0 8px var(--bp-color, white);
+  animation: oaBpExplode 1.2s ease-out forwards;
+}
+@keyframes oaBpExplode {
+  0% { transform: translate(-50%, -50%) rotate(var(--bp-angle, 0deg)) translateY(0); opacity: 1; }
+  100% { transform: translate(-50%, -50%) rotate(var(--bp-angle, 0deg)) translateY(calc(var(--bp-dist, 80px) * -1)); opacity: 0; }
 }
 
 /* 文字层 */
@@ -2586,28 +2846,80 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 .so-txt-leave-to { opacity: 0; transform: translateY(-10px); }
 
 /* 进度条 */
-.so-progress {
-  width: 240px; height: 3px;
-  background: rgba(99,179,237,0.1);
-  border-radius: 2px;
-  margin: 24px auto 10px;
-  overflow: hidden;
+.so-progress-wrap {
+  width: 280px; margin: 28px auto 10px; position: relative;
 }
-.so-progress-bar {
-  height: 100%;
+.so-progress-track {
+  position: relative; width: 100%; height: 6px;
+  background: rgba(99,179,237,0.08);
+  border-radius: 3px; overflow: visible;
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(99,179,237,0.06);
+}
+.so-progress-fill {
+  height: 100%; border-radius: 3px;
   background: linear-gradient(90deg, var(--star-blue), var(--star-purple), var(--star-cyan));
-  border-radius: 2px;
   transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 0 10px rgba(99,179,237,0.4);
+  box-shadow: 0 0 12px rgba(99,179,237,0.5), 0 0 24px rgba(147,130,220,0.25);
+  animation: progressGlow 2s ease-in-out infinite;
+  position: relative;
 }
-.so-progress-steps {
+@keyframes progressGlow {
+  0%, 100% { box-shadow: 0 0 10px rgba(99,179,237,0.4), 0 0 20px rgba(147,130,220,0.2); }
+  50% { box-shadow: 0 0 18px rgba(99,179,237,0.7), 0 0 36px rgba(147,130,220,0.4); }
+}
+.so-progress-dot {
+  position: absolute; top: 50%; width: 14px; height: 14px;
+  border-radius: 50%; transform: translate(-50%, -50%);
+  background: radial-gradient(circle, #fff 30%, var(--star-cyan) 70%);
+  box-shadow: 0 0 10px var(--star-cyan), 0 0 20px rgba(99,179,237,0.5), 0 0 30px rgba(99,179,237,0.25);
+  transition: left 1s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 2;
+  animation: dotPulse 1.5s ease-in-out infinite;
+}
+@keyframes dotPulse {
+  0%, 100% { box-shadow: 0 0 8px var(--star-cyan), 0 0 16px rgba(99,179,237,0.4); transform: translate(-50%, -50%) scale(1); }
+  50% { box-shadow: 0 0 16px var(--star-cyan), 0 0 32px rgba(99,179,237,0.6); transform: translate(-50%, -50%) scale(1.15); }
+}
+.so-progress-nodes {
   display: flex; justify-content: space-between;
-  width: 240px; margin: 0 auto;
-  font-size: 10px; font-family: var(--font-mono);
-  color: var(--text-muted, #475569);
-  letter-spacing: 0.5px;
+  margin-top: 14px;
 }
-.so-progress-steps span.active { color: var(--star-blue); }
+.so-pn {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  flex: 1; position: relative;
+}
+.so-pn-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: rgba(99,179,237,0.15); border: 1.5px solid rgba(99,179,237,0.2);
+  transition: all 0.6s ease;
+}
+.so-pn.active .so-pn-dot {
+  background: var(--star-blue);
+  border-color: var(--star-cyan);
+  box-shadow: 0 0 8px var(--star-blue), 0 0 16px rgba(99,179,237,0.3);
+}
+.so-pn.current .so-pn-dot {
+  animation: nodePulse 1.2s ease-in-out infinite;
+}
+@keyframes nodePulse {
+  0%, 100% { box-shadow: 0 0 6px var(--star-blue); transform: scale(1); }
+  50% { box-shadow: 0 0 14px var(--star-cyan), 0 0 28px rgba(99,179,237,0.4); transform: scale(1.3); }
+}
+.so-pn-label {
+  font-size: 10px; font-family: var(--font-mono);
+  color: var(--text-muted, #475569); letter-spacing: 0.5px;
+  transition: all 0.5s ease;
+}
+.so-pn.active .so-pn-label {
+  color: var(--star-cyan);
+  text-shadow: 0 0 8px rgba(99,179,237,0.4);
+}
+.so-pn.current .so-pn-label {
+  color: #fff;
+  text-shadow: 0 0 12px rgba(99,179,237,0.6);
+  font-weight: 600; transform: scale(1.08);
+}
 
 /* Overlay 过渡 */
 .ss-overlay-enter-active { transition: opacity 0.5s; }
@@ -2690,6 +3002,21 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
   font-family: var(--font-mono); font-size: 13px; font-weight: 600;
   color: var(--text-primary); letter-spacing: 1px;
 }
+.dp-ym-trigger { cursor: pointer; display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 6px; transition: background 0.2s; }
+.dp-ym-trigger:hover { background: rgba(255,255,255,0.06); }
+.dp-ym-arrow { font-size: 8px; color: var(--text-muted); }
+.dp-ym-panel { padding: 4px 0 8px; }
+.dp-ym-section { margin-bottom: 10px; }
+.dp-ym-label { font-size: 10px; color: var(--text-muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
+.dp-ym-grid { display: grid; gap: 4px; }
+.dp-year-grid { grid-template-columns: repeat(4, 1fr); max-height: 120px; overflow-y: auto; }
+.dp-month-grid { grid-template-columns: repeat(4, 1fr); }
+.dp-ym-btn {
+  padding: 5px 2px; border: 1px solid transparent; border-radius: 6px; background: rgba(255,255,255,0.03);
+  color: var(--text-secondary); font-size: 12px; font-family: var(--font-mono); cursor: pointer; transition: all 0.2s;
+}
+.dp-ym-btn:hover { border-color: var(--star-blue); color: var(--text-primary); background: rgba(99,179,237,0.08); }
+.dp-ym-btn.active { background: var(--star-blue); color: #0a0e17; border-color: var(--star-blue); font-weight: 700; }
 .dp-weekdays {
   display: grid; grid-template-columns: repeat(7, 1fr);
   text-align: center; font-size: 10px; color: var(--text-muted);
@@ -2744,80 +3071,6 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 
 /* ═══ Open Animation ═══ */
 .open-mode { background: radial-gradient(ellipse at center, #030818 0%, #000 100%); }
-.open-anim {
-  width: 280px; height: 280px; position: relative; margin-bottom: 40px;
-  transition: all 1s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.open-anim.phase-3, .open-anim.phase-4 { transform: scale(0.9); }
-.oa-glow {
-  position: absolute; inset: -50px; border-radius: 50%;
-  background: radial-gradient(circle, rgba(104,211,145,0.08) 0%, rgba(99,179,237,0.04) 40%, transparent 70%);
-  animation: soGlowPulse 3s ease-in-out infinite;
-}
-.oa-ring {
-  position: absolute; border-radius: 50%; border: 1px solid rgba(104,211,145,0.2);
-  animation: oaRingExpand 3s ease-in-out infinite;
-}
-.oa-ring.r1 { inset: 20px; animation-delay: 0s; }
-.oa-ring.r2 { inset: 40px; animation-delay: 0.5s; border-color: rgba(99,179,237,0.15); }
-.oa-ring.r3 { inset: 60px; animation-delay: 1s; border-color: rgba(183,148,244,0.12); }
-@keyframes oaRingExpand {
-  0%,100% { transform: scale(1); opacity: 0.3; }
-  50% { transform: scale(1.08); opacity: 0.7; }
-}
-.oa-capsule {
-  position: absolute; left: 50%; top: 50%;
-  width: 52px; height: 90px; margin: -45px 0 0 -26px;
-  transition: all 1s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 5;
-}
-.oa-capsule.cracking { animation: oaCrack 1.5s ease-in-out; }
-.oa-capsule.burst { animation: oaBurst 0.8s ease forwards; }
-@keyframes oaCrack {
-  0%,100% { transform: rotate(0deg); }
-  15% { transform: rotate(-3deg); }
-  30% { transform: rotate(3deg); }
-  45% { transform: rotate(-5deg); }
-  60% { transform: rotate(5deg); }
-  75% { transform: rotate(-2deg); }
-}
-@keyframes oaBurst {
-  0% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.5); opacity: 0.8; }
-  100% { transform: scale(0); opacity: 0; }
-}
-.oa-cap-body {
-  width: 100%; height: 100%; border-radius: 26px;
-  background: linear-gradient(180deg, #b0d4ff 0%, #60a5fa 15%, #2563eb 35%, #1e40af 50%, #1d4ed8 65%, #60a5fa 85%, #93c5fd 100%);
-  box-shadow: 0 0 30px rgba(99,179,237,0.5), 0 0 60px rgba(99,179,237,0.2);
-  border: 1px solid rgba(148,196,255,0.25);
-}
-.oa-cap-band {
-  position: absolute; left: -2px; right: -2px; top: 50%; transform: translateY(-50%);
-  height: 6px; border-radius: 3px;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), rgba(104,211,145,0.9), rgba(255,255,255,0.6), transparent);
-}
-.oa-crack {
-  position: absolute; left: 50%; top: 30%; width: 2px; height: 40%;
-  background: linear-gradient(180deg, transparent, rgba(104,211,145,0.8), rgba(251,176,64,0.6), transparent);
-  transform: translateX(-50%);
-  animation: oaCrackGlow 0.5s ease-in-out infinite alternate;
-  box-shadow: 0 0 10px rgba(104,211,145,0.5);
-}
-@keyframes oaCrackGlow { from { opacity: 0.5; } to { opacity: 1; } }
-
-.oa-burst-particles { position: absolute; inset: 0; z-index: 10; }
-.oa-bp {
-  position: absolute; left: 50%; top: 50%;
-  width: var(--bp-size, 4px); height: var(--bp-size, 4px);
-  border-radius: 50%; background: var(--bp-color, white);
-  box-shadow: 0 0 8px var(--bp-color, white);
-  animation: oaBpExplode 1.2s ease-out forwards;
-}
-@keyframes oaBpExplode {
-  0% { transform: translate(-50%, -50%) rotate(var(--bp-angle, 0deg)) translateY(0); opacity: 1; }
-  100% { transform: translate(-50%, -50%) rotate(var(--bp-angle, 0deg)) translateY(calc(var(--bp-dist, 80px) * -1)); opacity: 0; }
-}
 
 /* ═══ Opened Content Overlay ═══ */
 .opened-content-overlay {
@@ -2885,6 +3138,33 @@ const receivedCapsules = ref<ReceivedCapsule[]>([
 .oc-att-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
 .oc-att-item { border-radius: 12px; overflow: hidden; border: 1px solid var(--ss-border); }
 .oc-att-img { width: 100%; display: block; }
+/* 开启后的锁入资产展示 */
+.oc-assets {
+  padding: 20px 32px; border-top: 1px solid var(--ss-border);
+  background: rgba(34,197,94,0.03);
+}
+.oc-assets-title {
+  font-size: 14px; font-weight: 600; color: #22c55e; margin-bottom: 4px;
+}
+.oc-assets-hint {
+  font-size: 11px; color: rgba(255,255,255,0.5); margin-bottom: 14px;
+}
+.oc-assets-list { display: flex; flex-direction: column; gap: 8px; }
+.oc-asset-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; border-radius: 10px;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+}
+.oc-asset-item.token { border-color: rgba(251,191,36,0.2); }
+.oc-asset-item.nft { border-color: rgba(167,139,250,0.2); }
+.oc-asset-icon { font-size: 18px; }
+.oc-asset-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.oc-asset-amount { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.oc-asset-usd { font-size: 11px; color: rgba(255,255,255,0.45); }
+.oc-asset-status {
+  font-size: 11px; font-weight: 600; color: #22c55e;
+  padding: 2px 8px; border-radius: 6px; background: rgba(34,197,94,0.1);
+}
 .oc-footer {
   padding: 16px 32px 24px; text-align: center;
   border-top: 1px solid var(--ss-border);

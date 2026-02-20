@@ -1,6 +1,5 @@
 /**
  * EVM Chain Service — 处理所有 EVM 兼容链的合约交互
- * BSC, Ethereum, Base, Avalanche, Chainlink(Ethereum)
  */
 import { ethers } from 'ethers'
 import { CAPSULE_ABI, ERC20_ABI, ERC721_ABI, ERC1155_ABI } from './abi'
@@ -13,18 +12,35 @@ function getProvider(chain: ChainConfig): ethers.JsonRpcProvider {
   return new ethers.JsonRpcProvider(getRpcUrl(chain))
 }
 
-function getBrowserProvider(): ethers.BrowserProvider | null {
-  const verified = getConnectedProvider()
-  if (verified) {
-    return new ethers.BrowserProvider(verified as ethers.Eip1193Provider)
-  }
-  if (typeof window === 'undefined' || !window.ethereum) return null
-  return new ethers.BrowserProvider(window.ethereum as ethers.Eip1193Provider)
+function getRawProvider() {
+  return getConnectedProvider() || (window as Record<string, unknown>).ethereum as {
+    request: (args: { method: string; params?: unknown[] }) => Promise<unknown>
+  } | null
 }
 
-async function getSigner(): Promise<ethers.JsonRpcSigner> {
+function getBrowserProvider(): ethers.BrowserProvider | null {
+  const raw = getRawProvider()
+  if (!raw) return null
+  return new ethers.BrowserProvider(raw as ethers.Eip1193Provider)
+}
+
+function getLocalhostSigner(): ethers.JsonRpcSigner | null {
+  try {
+    const provider = new ethers.JsonRpcProvider('http://127.0.0.1:8545')
+    return new ethers.JsonRpcSigner(provider, '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266')
+  } catch {
+    return null
+  }
+}
+
+async function getSigner(chain?: ChainConfig): Promise<ethers.Signer> {
+  if (chain?.key === 'localhost') {
+    const localhostSigner = getLocalhostSigner()
+    if (localhostSigner) return localhostSigner
+    throw new Error('Hardhat 本地节点未运行。请先执行: npx hardhat node')
+  }
   const bp = getBrowserProvider()
-  if (!bp) throw new Error('No wallet connected')
+  if (!bp) throw new Error('未连接钱包')
   return bp.getSigner()
 }
 
@@ -32,34 +48,71 @@ function getCapsuleContract(chain: ChainConfig, signerOrProvider: ethers.Signer 
   return new ethers.Contract(getContractAddress(chain), CAPSULE_ABI, signerOrProvider)
 }
 
+async function hasContractCode(provider: ethers.Provider, address: string): Promise<boolean> {
+  try {
+    const code = await provider.getCode(address)
+    return code !== '0x' && code !== '0x0' && code.length > 2
+  } catch {
+    return false
+  }
+}
+
 export async function switchToChain(chain: ChainConfig): Promise<void> {
   if (!chain.chainId) return
-  const provider = getConnectedProvider() || window.ethereum
-  if (!provider) return
+  const provider = getRawProvider()
+  if (!provider) throw new Error('未找到钱包 Provider')
 
-  const chainIdHex = '0x' + chain.chainId.toString(16)
+  const targetHex = '0x' + chain.chainId.toString(16)
+
+  const getCurrentChainId = async () => {
+    const res = await provider.request({ method: 'eth_chainId' })
+    return (res as string).toLowerCase()
+  }
+
+  const currentChain = await getCurrentChainId()
+  if (currentChain === targetHex.toLowerCase()) return
 
   try {
     await provider.request({
       method: 'wallet_switchEthereumChain',
-      params: [{ chainId: chainIdHex }],
+      params: [{ chainId: targetHex }],
     })
   } catch (err: unknown) {
     const e = err as { code?: number }
-    if (e.code === 4902) {
-      await provider.request({
-        method: 'wallet_addEthereumChain',
-        params: [{
-          chainId: chainIdHex,
-          chainName: chain.name,
-          rpcUrls: [getRpcUrl(chain)],
-          nativeCurrency: chain.nativeCurrency,
-          blockExplorerUrls: [chain.explorerUrl],
-        }],
-      })
+    if (e.code === 4902 || e.code === -32603) {
+      try {
+        await provider.request({
+          method: 'wallet_addEthereumChain',
+          params: [{
+            chainId: targetHex,
+            chainName: chain.name,
+            rpcUrls: [getRpcUrl(chain)],
+            nativeCurrency: chain.nativeCurrency,
+            blockExplorerUrls: chain.explorerUrl ? [chain.explorerUrl] : undefined,
+          }],
+        })
+      } catch (addErr: unknown) {
+        const ae = addErr as { code?: number; message?: string }
+        if (ae.code === 4001) {
+          throw new Error(`你拒绝了添加 ${chain.name} 网络的请求。请在 MetaMask 中手动添加该网络后重试。`)
+        }
+        throw new Error(`无法添加 ${chain.name} 网络: ${ae.message || '未知错误'}`)
+      }
+    } else if (e.code === 4001) {
+      throw new Error(`你拒绝了切换到 ${chain.name} 网络。请手动切换后重试。`)
     } else {
-      throw err
+      throw new Error(`切换到 ${chain.name} 失败: ${(err as { message?: string }).message || '未知错误'}`)
     }
+  }
+
+  await new Promise(r => setTimeout(r, 500))
+
+  const afterChain = await getCurrentChainId()
+  if (afterChain !== targetHex.toLowerCase()) {
+    throw new Error(
+      `MetaMask 当前网络 (${afterChain}) 与目标 ${chain.name} (${targetHex}) 不匹配。` +
+      `请在 MetaMask 中手动切换到 ${chain.name} 后重试。`
+    )
   }
 }
 
@@ -74,9 +127,9 @@ export async function estimateGas(
     const gasPrice = feeData.gasPrice ?? ethers.parseUnits('5', 'gwei')
 
     let baseGas = 200000n
-    baseGas += BigInt(params.tokens.length) * 60000n  // each token approval + lock
-    baseGas += BigInt(params.nfts.length) * 80000n    // each NFT approval + lock
-    if (params.tokens.length > 0) baseGas += 50000n   // native token handling
+    baseGas += BigInt(params.tokens.length) * 60000n
+    baseGas += BigInt(params.nfts.length) * 80000n
+    if (params.tokens.length > 0) baseGas += 50000n
     baseGas += BigInt(Math.ceil(params.contentCID.length / 32)) * 2000n
 
     const totalWei = baseGas * gasPrice
@@ -100,92 +153,116 @@ export async function createCapsule(
   params: CreateCapsuleParams,
   onStep?: TxStepCallback
 ): Promise<{ txHash: string; capsuleId: number }> {
-  const signer = await getSigner()
+  const contractAddr = getContractAddress(chain)
+  if (!contractAddr || contractAddr === ethers.ZeroAddress) {
+    throw new Error(`${chain.name} 上的时光胶囊合约尚未部署。请切换到已部署合约的链（如 Localhost）。`)
+  }
+
+  // Step 1: Switch chain (skip for localhost — uses direct RPC)
+  if (chain.key === 'localhost') {
+    onStep?.({ step: 'switch_chain', status: 'done', message: '使用 Hardhat 本地节点（直连）' })
+  } else {
+    onStep?.({ step: 'switch_chain', status: 'pending', message: `切换到 ${chain.name}...` })
+    await switchToChain(chain)
+    onStep?.({ step: 'switch_chain', status: 'done', message: `已切换到 ${chain.name}` })
+  }
+
+  const signer = await getSigner(chain)
   const contract = getCapsuleContract(chain, signer)
   const userAddr = await signer.getAddress()
+  const ethProvider = signer.provider! as ethers.Provider
 
-  // Step 1: Switch chain
-  onStep?.({ step: 'switch_chain', status: 'pending', message: `切换到 ${chain.name}...` })
-  await switchToChain(chain)
-  onStep?.({ step: 'switch_chain', status: 'done', message: `已切换到 ${chain.name}` })
+  // Verify capsule contract actually exists
+  const capsuleExists = await hasContractCode(ethProvider, contractAddr)
+  if (!capsuleExists) {
+    throw new Error(
+      `在 ${chain.name} 的地址 ${contractAddr.slice(0, 10)}... 没有找到合约。` +
+      (chain.key === 'localhost' ? ' 请确认 Hardhat 节点正在运行，且合约已部署。' : ' 请先部署合约。')
+    )
+  }
 
-  // Step 2: Approve ERC-20 tokens
+  // Helper: normalize address checksum
+  const safe = (addr: string) => ethers.getAddress(addr.toLowerCase())
+
+  // Step 2: Process tokens — separate native from ERC-20, check contracts exist
   let nativeTotal = 0n
+  const realTokens: typeof params.tokens = []
+
   for (let i = 0; i < params.tokens.length; i++) {
     const tk = params.tokens[i]
     if (tk.address === 'native' || tk.address === ethers.ZeroAddress) {
       nativeTotal += ethers.parseUnits(tk.amount, tk.decimals)
+      realTokens.push(tk)
       continue
     }
 
-    onStep?.({
-      step: 'approve_token',
-      status: 'pending',
-      message: `授权 ${tk.symbol}... (${i + 1}/${params.tokens.length})`,
-      index: i,
-    })
+    const addr = safe(tk.address)
+    const tokenHasCode = await hasContractCode(ethProvider, addr)
+    if (!tokenHasCode) {
+      onStep?.({ step: 'approve_token', status: 'done', message: `${tk.symbol} 仅记录到 IPFS（链上无合约）`, index: i })
+      continue
+    }
 
-    const erc20 = new ethers.Contract(tk.address, ERC20_ABI, signer)
+    onStep?.({ step: 'approve_token', status: 'pending', message: `授权 ${tk.symbol}... (${i + 1}/${params.tokens.length})`, index: i })
+
+    const erc20 = new ethers.Contract(addr, ERC20_ABI, signer)
     const amount = ethers.parseUnits(tk.amount, tk.decimals)
-    const allowance: bigint = await erc20.allowance(userAddr, getContractAddress(chain))
+    const allowance: bigint = await erc20.allowance(userAddr, contractAddr)
 
     if (allowance < amount) {
-      const approveTx = await erc20.approve(getContractAddress(chain), amount)
+      const approveTx = await erc20.approve(contractAddr, amount)
       await approveTx.wait()
     }
 
-    onStep?.({
-      step: 'approve_token',
-      status: 'done',
-      message: `${tk.symbol} 已授权`,
-      index: i,
-    })
+    realTokens.push({ ...tk, address: addr })
+    onStep?.({ step: 'approve_token', status: 'done', message: `${tk.symbol} 已授权`, index: i })
   }
 
-  // Step 3: Approve NFTs
+  // Step 3: Process NFTs — check contracts exist
+  const realNfts: typeof params.nfts = []
+
   for (let i = 0; i < params.nfts.length; i++) {
     const nft = params.nfts[i]
-    onStep?.({
-      step: 'approve_nft',
-      status: 'pending',
-      message: `授权 NFT ${nft.name}... (${i + 1}/${params.nfts.length})`,
-      index: i,
-    })
+    const addr = safe(nft.contractAddress)
+    const nftHasCode = await hasContractCode(ethProvider, addr)
+
+    if (!nftHasCode) {
+      onStep?.({ step: 'approve_nft', status: 'done', message: `NFT ${nft.name} 仅记录到 IPFS（链上无合约）`, index: i })
+      continue
+    }
+
+    onStep?.({ step: 'approve_nft', status: 'pending', message: `授权 NFT ${nft.name}... (${i + 1}/${params.nfts.length})`, index: i })
 
     if (nft.standard === 'ERC-1155' || nft.standard === 'BEP-1155') {
-      const erc1155 = new ethers.Contract(nft.contractAddress, ERC1155_ABI, signer)
-      const approved: boolean = await erc1155.isApprovedForAll(userAddr, getContractAddress(chain))
+      const erc1155 = new ethers.Contract(addr, ERC1155_ABI, signer)
+      const approved: boolean = await erc1155.isApprovedForAll(userAddr, contractAddr)
       if (!approved) {
-        const tx = await erc1155.setApprovalForAll(getContractAddress(chain), true)
+        const tx = await erc1155.setApprovalForAll(contractAddr, true)
         await tx.wait()
       }
     } else {
-      const erc721 = new ethers.Contract(nft.contractAddress, ERC721_ABI, signer)
-      const approved: boolean = await erc721.isApprovedForAll(userAddr, getContractAddress(chain))
+      const erc721 = new ethers.Contract(addr, ERC721_ABI, signer)
+      const approved: boolean = await erc721.isApprovedForAll(userAddr, contractAddr)
       if (!approved) {
-        const tx = await erc721.setApprovalForAll(getContractAddress(chain), true)
+        const tx = await erc721.setApprovalForAll(contractAddr, true)
         await tx.wait()
       }
     }
 
-    onStep?.({
-      step: 'approve_nft',
-      status: 'done',
-      message: `NFT ${nft.name} 已授权`,
-      index: i,
-    })
+    realNfts.push({ ...nft, contractAddress: addr })
+    onStep?.({ step: 'approve_nft', status: 'done', message: `NFT ${nft.name} 已授权`, index: i })
   }
 
-  // Step 4: Create capsule on-chain
+  // Step 4: Create capsule on-chain (only with real tokens/NFTs that exist on-chain)
   onStep?.({ step: 'create_capsule', status: 'pending', message: '创建胶囊合约交易...' })
 
   const capsuleTypeMap = { self: 0, other: 1, world: 2 } as const
-  const tokenLocks = params.tokens.map(tk => ({
-    token: (tk.address === 'native') ? ethers.ZeroAddress : tk.address,
+  const tokenLocks = realTokens.map(tk => ({
+    token: (tk.address === 'native') ? ethers.ZeroAddress : safe(tk.address),
     amount: ethers.parseUnits(tk.amount, tk.decimals),
   }))
-  const nftLocks = params.nfts.map(nft => ({
-    collection: nft.contractAddress,
+  const nftLocks = realNfts.map(nft => ({
+    collection: safe(nft.contractAddress),
     tokenId: BigInt(nft.tokenId),
     isERC1155: nft.standard === 'ERC-1155' || nft.standard === 'BEP-1155',
     amount: 1n,
@@ -193,7 +270,7 @@ export async function createCapsule(
 
   const tx = await contract.createCapsule(
     capsuleTypeMap[params.capsuleType],
-    params.recipient || ethers.ZeroAddress,
+    params.recipient ? ethers.getAddress(params.recipient.toLowerCase()) : ethers.ZeroAddress,
     params.contentCID,
     BigInt(Math.floor(new Date(params.unlockTime).getTime() / 1000)),
     params.allowEarlyUnlock,
@@ -221,12 +298,7 @@ export async function createCapsule(
     capsuleId = Number(parsed?.args[0] ?? 0)
   }
 
-  onStep?.({
-    step: 'create_capsule',
-    status: 'done',
-    message: `胶囊 #${capsuleId} 已上链!`,
-    txHash: tx.hash,
-  })
+  onStep?.({ step: 'create_capsule', status: 'done', message: `胶囊 #${capsuleId} 已上链!`, txHash: tx.hash })
 
   return { txHash: tx.hash, capsuleId }
 }
@@ -236,12 +308,14 @@ export async function openCapsule(
   capsuleId: number,
   onStep?: TxStepCallback
 ): Promise<string> {
-  const signer = await getSigner()
-  const contract = getCapsuleContract(chain, signer)
+  if (chain.key !== 'localhost') {
+    onStep?.({ step: 'switch_chain', status: 'pending', message: `切换到 ${chain.name}...` })
+    await switchToChain(chain)
+    onStep?.({ step: 'switch_chain', status: 'done', message: `已切换到 ${chain.name}` })
+  }
 
-  onStep?.({ step: 'switch_chain', status: 'pending', message: `切换到 ${chain.name}...` })
-  await switchToChain(chain)
-  onStep?.({ step: 'switch_chain', status: 'done', message: `已切换到 ${chain.name}` })
+  const signer = await getSigner(chain)
+  const contract = getCapsuleContract(chain, signer)
 
   onStep?.({ step: 'open_capsule', status: 'pending', message: '发送解封交易...' })
   const tx = await contract.openCapsule(capsuleId)
@@ -258,10 +332,10 @@ export async function earlyOpenCapsule(
   capsuleId: number,
   onStep?: TxStepCallback
 ): Promise<string> {
-  const signer = await getSigner()
-  const contract = getCapsuleContract(chain, signer)
+  if (chain.key !== 'localhost') await switchToChain(chain)
 
-  await switchToChain(chain)
+  const signer = await getSigner(chain)
+  const contract = getCapsuleContract(chain, signer)
 
   onStep?.({ step: 'early_open', status: 'pending', message: '发送提前解封交易 (10% 惩罚)...' })
   const tx = await contract.earlyOpen(capsuleId)
